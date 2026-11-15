@@ -42,7 +42,7 @@ def database_url() -> str:
     (the access token travels separately, see turso_auth_token). Postgres hosts hand out `postgres://`
     or `postgresql://`; SQLAlchemy needs the driver name (psycopg 3) in them.
     """
-    url = os.getenv("DATABASE_URL", "sqlite:///./attachlog.db").strip()
+    url = os.getenv("DATABASE_URL", "").strip().strip("'\"").strip() or "sqlite:///./attachlog.db"
     if url.startswith("libsql://"):
         host = url[len("libsql://"):]
         return f"sqlite+libsql://{host}" + ("&" if "?" in host else "?") + "secure=true"
@@ -54,7 +54,7 @@ def database_url() -> str:
 
 def turso_auth_token() -> str:
     """The database token created in the Turso dashboard or with `turso db tokens create`."""
-    return os.getenv("TURSO_AUTH_TOKEN", "").strip()
+    return os.getenv("TURSO_AUTH_TOKEN", "").strip().strip("'\"").strip()
 
 
 def jwt_secret() -> str:
@@ -109,3 +109,17 @@ def mail_from() -> str:
     if smtp_user() and not resend_api_key():
         return f"AttachLog <{smtp_user()}>"
     return "AttachLog <onboarding@resend.dev>"
+
+
+def database_kind() -> str:
+    """'turso', 'postgres' or 'sqlite' (never includes the address or token, so it is safe to log)."""
+    url = database_url()
+    if url.startswith("sqlite+libsql"):
+        return "turso"
+    if url.startswith("sqlite"):
+        return "sqlite"
+    return "postgres"
+
+
+def on_render() -> bool:
+    return os.getenv("RENDER", "").lower() == "true"

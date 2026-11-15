@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.auth import router as auth_router
 from app.bootstrap import ensure_admin
-from app import migrate
+from app import config, migrate
 from app.database import SessionLocal
 from app.entries import router as entries_router
 from app.errors import register_handlers
@@ -17,7 +17,13 @@ from app.schools import admin as admin_router, schools as schools_router
 
 STATIC = Path(__file__).parent / "static"
 
-if os.getenv("AUTO_MIGRATE", "1") == "1":      # the tests switch it off and build their own database
+if os.getenv("AUTO_MIGRATE", "1") == "1":
+    kind = config.database_kind()
+    print(f"AttachLog: database = {kind}")
+    if kind == "sqlite" and config.on_render() and os.getenv("ALLOW_EPHEMERAL_DB") != "1":
+        # A SQLite file on Render's disk is erased at every restart and deploy: refuse instead of losing data silently.
+        raise RuntimeError("DATABASE_URL is not set (or is a local SQLite file) on Render, so every user would be "
+                           "lost at the next restart. Set DATABASE_URL (and TURSO_AUTH_TOKEN) in the Render dashboard.")      # the tests switch it off and build their own database
     migrate.upgrade()
     with SessionLocal() as session:
         if ensure_admin(session):
@@ -49,3 +55,16 @@ def admin_page():
 def health():
     """Liveness probe, also used by the app's connection test."""
     return {"status": "ok"}
+
+
+@app.get("/health/database", tags=["health"])
+def health_database():
+    """Which kind of database the server is really using, and whether it answers. No address, no secrets."""
+    from sqlalchemy import text
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+        reachable = True
+    except Exception:  # noqa: BLE001
+        reachable = False
+    return {"database": config.database_kind(), "reachable": reachable}
