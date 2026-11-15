@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AttachLog Admin</title>
+<link rel="icon" href="/admin/static/favicon.png">
+<style>
+  :root { --bg:#F3F5F7; --card:#fff; --text:#14212B; --muted:#566673; --line:#D9E0E6; --brand:#0B6B5D; --brand-d:#08524A;
+          --amber:#F5B83D; --danger:#B3261E; --danger-bg:#FCE8E6; --ok-bg:#DDF3E6; --ok:#17663D; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { background:var(--brand); color:#fff; display:flex; align-items:center; gap:12px; padding:12px 20px; }
+  header img { width:36px; height:36px; }
+  header h1 { font-size:18px; margin:0; flex:1; }
+  header button { background:transparent; border:1px solid #ffffff88; color:#fff; }
+  main { max-width:980px; margin:0 auto; padding:20px 16px 60px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:16px; }
+  h2 { font-size:17px; margin:0 0 12px; } h3 { font-size:15px; margin:18px 0 8px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; color:var(--text); }
+  input:focus { outline:2px solid var(--brand); outline-offset:-1px; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+  button { font:inherit; padding:9px 14px; border-radius:8px; border:1px solid var(--brand); background:var(--brand); color:#fff; cursor:pointer; }
+  button:hover { background:var(--brand-d); }
+  button.ghost { background:#fff; color:var(--brand); } button.ghost:hover { background:#EAF4F2; }
+  button:disabled { opacity:.55; cursor:default; }
+  table { width:100%; border-collapse:collapse; } th,td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:12px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  tr.click { cursor:pointer; } tr.click:hover { background:#F7FAF9; }
+  .code { font:600 17px ui-monospace,Consolas,monospace; letter-spacing:.12em; background:#FFF6DD; border:1px dashed var(--amber); padding:2px 8px; border-radius:6px; user-select:all; }
+  .msg { padding:10px 12px; border-radius:8px; margin:10px 0; } .err { background:var(--danger-bg); color:var(--danger); } .good { background:var(--ok-bg); color:var(--ok); }
+  .muted { color:var(--muted); } .pill { display:inline-block; font-size:12px; padding:1px 8px; border-radius:99px; background:#EAF0F3; margin-right:4px; }
+  .login { max-width:380px; margin:12vh auto 0; }
+  .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .bar .grow { flex:1; }
+  .hidden { display:none; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0F171D; --card:#17222A; --text:#E7EEF2; --muted:#9AAAB6; --line:#2A3A45; --danger-bg:#3A1A18; --ok-bg:#12301F; --ok:#7CD6A0; --danger:#FF9A92; }
+    input { background:#0F171D; } button.ghost { background:#17222A; color:#7FD0C3; } button.ghost:hover { background:#1E2D36; }
+    tr.click:hover { background:#1B2A33; } .pill { background:#223039; } .code { background:#3A3015; color:#FFE9A8; }
+  }
+</style>
+</head>
+<body>
+<header><img src="/admin/static/logo.png" alt=""><h1>AttachLog Admin</h1><button id="out" class="hidden">Log out</button></header>
+<main id="app"></main>
+<script>
+"use strict";
+const API = "/v1";
+let token = null;
+const $ = (id) => document.getElementById(id);
+
+// tiny DOM helper: text is always set as text (never as HTML), so names and emails cannot inject markup
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") el.className = v; else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid != null) el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  return el;
+}
+function show(...nodes) { const app = $("app"); app.replaceChildren(...nodes); }
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    method: opts.method || "GET",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  if (res.status === 204) return null;
+  let data = null; try { data = await res.json(); } catch (e) { /* not JSON */ }
+  if (!res.ok) {
+    if (res.status === 401 && token) { logout(); }
+    const err = data && data.error ? data.error : { message: "Request failed (" + res.status + ")" };
+    const detail = err.details && err.details[0] ? " (" + err.details[0].loc.slice(1).join(".") + ": " + err.details[0].msg + ")" : "";
+    throw new Error(err.message + detail);
+  }
+  return data;
+}
+const note = (kind, text) => h("div", { class: "msg " + kind }, text);
+function field(id, label, attrs) { return [h("label", { for: id }, label), h("input", { id, ...attrs })]; }
+const fmt = (s) => new Date(s).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+
+function logout() { token = null; $("out").classList.add("hidden"); loginView(); }
+$("out").addEventListener("click", logout);
+
+/* ---------- login ---------- */
+function loginView(message) {
+  const msg = h("div");
+  if (message) msg.append(note("err", message));
+  const form = h("form", { class: "card login", onsubmit: async (e) => {
+    e.preventDefault(); msg.replaceChildren();
+    try {
+      const r = await api("/auth/login", { method: "POST", body: { email: $("email").value, password: $("password").value } });
+      if (!r.user.is_admin) { msg.append(note("err", "This account is not the platform administrator.")); return; }
+      token = r.access_token; $("out").classList.remove("hidden"); listView();
+    } catch (err) { msg.append(note("err", err.message)); }
+  } }, h("h2", {}, "Administrator login"), msg,
+    field("email", "Email", { type: "email", autocomplete: "username", required: true }),
+    field("password", "Password", { type: "password", autocomplete: "current-password", required: true }),
+    h("p", {}, h("button", { type: "submit" }, "Log in")));
+  show(form);
+}
+
+/* ---------- schools list + register ---------- */
+async function listView(flash) {
+  show(h("p", { class: "muted" }, "Loading…"));
+  let schools;
+  try { schools = await api("/admin/schools"); } catch (err) { return loginView(err.message); }
+  const today = new Date().getFullYear();
+  const reg = h("form", { class: "card", onsubmit: async (e) => {
+    e.preventDefault(); const out = $("reg-msg"); out.replaceChildren();
+    try {
+      const r = await api("/admin/schools", { method: "POST", body: {
+        name: $("s-name").value, city: $("s-city").value, term_start: $("s-start").value, term_end: $("s-end").value,
+        coordinator_email: $("s-coord").value } });
+      detailView(r.school.id, grantMessage("School registered. ", r.coordinator));
+    } catch (err) { out.append(note("err", err.message)); }
+  } },
+    h("h2", {}, "Register a school"),
+    h("div", { class: "row" }, h("div", {}, field("s-name", "School name", { required: true, minlength: 2 })), h("div", {}, field("s-city", "City", { required: true }))),
+    h("div", { class: "row" }, h("div", {}, field("s-start", "Term starts", { type: "date", required: true, value: today + "-09-01" })),
+      h("div", {}, field("s-end", "Term ends", { type: "date", required: true, value: (today + 1) + "-02-28" }))),
+    h("div", {}, field("s-coord", "First coordinator's email", { type: "email", required: true, placeholder: "coordinator@school.example" })),
+    h("p", { class: "muted" }, "The coordinator gets a code to create their account. Placements must fall inside the term dates."),
+    h("div", { id: "reg-msg" }), h("button", { type: "submit" }, "Register school"));
+
+  const rows = schools.map((s) => h("tr", { class: "click", onclick: () => detailView(s.id) },
+    h("td", {}, h("strong", {}, s.name), h("div", { class: "muted" }, s.city)),
+    h("td", {}, s.coordinators), h("td", {}, s.academic_supervisors), h("td", {}, s.students), h("td", {}, s.placements),
+    h("td", {}, fmt(s.term_start) + " – " + fmt(s.term_end))));
+  const table = schools.length
+    ? h("table", {}, h("thead", {}, h("tr", {}, ["School", "Coordinators", "Supervisors", "Students", "Placements", "Term"].map((t) => h("th", {}, t)))), h("tbody", {}, rows))
+    : h("p", { class: "muted" }, "No schools yet. Register the first one above.");
+  show(flash || h("span"), reg, h("div", { class: "card" }, h("h2", {}, "Schools (" + schools.length + ")"), table), tools());
+}
+
+function tools() {
+  const out = h("div");
+  return h("form", { class: "card", onsubmit: async (e) => {
+    e.preventDefault(); out.replaceChildren();
+    try {
+      const r = await api("/admin/users/reset-password", { method: "POST", body: { email: $("reset-email").value } });
+      out.append(note("good", ["Temporary password for ", h("strong", {}, r.email), ": ", h("span", { class: "code" }, r.temporary_password), " Hand it over privately; they should change it in the app."]));
+    } catch (err) { out.append(note("err", err.message)); }
+  } }, h("h2", {}, "Reset someone's password"),
+    h("p", { class: "muted" }, "For when email sending is not set up. Creates a temporary password for that account."),
+    h("div", { class: "bar" }, h("div", { class: "grow" }, h("input", { id: "reset-email", type: "email", placeholder: "person@example.com", required: true })), h("button", { class: "ghost", type: "submit" }, "Create temporary password")), out);
+}
+
+function grantMessage(prefix, g) {
+  if (g.status === "member") return note("good", prefix + g.email + " already had an account and is now a coordinator.");
+  return note("good", [prefix, "Give ", h("strong", {}, g.email), " this code to create their account: ", h("span", { class: "code" }, g.invite.code),
+    g.email_sent ? " (also sent by email)." : " (email sending is not set up, so send it yourself)."]);
+}
+
+/* ---------- one school ---------- */
+async function detailView(id, flash) {
+  show(h("p", { class: "muted" }, "Loading…"));
+  let d;
+  try { d = await api("/admin/schools/" + id); } catch (err) { return listView(note("err", err.message)); }
+  const s = d.school, flashBox = h("div", {}, flash || null);
+  const roleName = { coordinator: "Coordinator", academic_supervisor: "Academic supervisor", student: "Student" };
+  const staff = d.members.filter((m) => m.role !== "student");
+  const students = d.members.length - staff.length;
+
+  const edit = h("form", { class: "card", onsubmit: async (e) => {
+    e.preventDefault();
+    try {
+      await api("/admin/schools/" + id, { method: "PUT", body: { name: $("e-name").value, city: $("e-city").value, term_start: $("e-start").value, term_end: $("e-end").value } });
+      detailView(id, note("good", "School saved."));
+    } catch (err) { flashBox.replaceChildren(note("err", err.message)); }
+  } }, h("h2", {}, "School"),
+    h("div", { class: "row" }, h("div", {}, field("e-name", "Name", { value: s.name, required: true })), h("div", {}, field("e-city", "City", { value: s.city, required: true }))),
+    h("div", { class: "row" }, h("div", {}, field("e-start", "Term starts", { type: "date", value: s.term_start, required: true })), h("div", {}, field("e-end", "Term ends", { type: "date", value: s.term_end, required: true }))),
+    h("p", {}, h("button", { type: "submit" }, "Save changes")));
+
+  const code = h("div", { class: "card" }, h("h2", {}, "Student join code"),
+    h("p", { class: "muted" }, "Students create their account in the app with this code. " + students + " student(s) so far."),
+    h("p", { class: "bar" }, h("span", { class: "code" }, s.join_code),
+      h("button", { class: "ghost", type: "button", onclick: async () => {
+        if (!confirm("Replace the join code? The old code stops working.")) return;
+        try { await api("/admin/schools/" + id + "/join-code", { method: "POST" }); detailView(id, note("good", "New join code created.")); }
+        catch (err) { flashBox.replaceChildren(note("err", err.message)); }
+      } }, "Make a new code")));
+
+  const people = h("div", { class: "card" }, h("h2", {}, "Coordinators and academic supervisors"),
+    staff.length ? h("table", {}, h("thead", {}, h("tr", {}, ["Name", "Email", "Role"].map((t) => h("th", {}, t)))),
+      h("tbody", {}, staff.map((m) => h("tr", {}, h("td", {}, m.name), h("td", {}, m.email), h("td", {}, roleName[m.role]))))) : h("p", { class: "muted" }, "Nobody has joined yet."),
+    d.invites.length ? [h("h3", {}, "Waiting for an account"),
+      h("table", {}, h("tbody", {}, d.invites.map((i) => h("tr", {}, h("td", {}, i.email), h("td", {}, roleName[i.role]),
+        h("td", {}, h("span", { class: "code" }, i.code)), h("td", { class: "muted" }, "until " + fmt(i.expires_at))))))] : null,
+    h("h3", {}, "Add a coordinator"),
+    h("form", { class: "bar", onsubmit: async (e) => {
+      e.preventDefault();
+      try { const g = await api("/admin/schools/" + id + "/coordinators", { method: "POST", body: { email: $("c-email").value } }); detailView(id, grantMessage("", g)); }
+      catch (err) { flashBox.replaceChildren(note("err", err.message)); }
+    } }, h("div", { class: "grow" }, h("input", { id: "c-email", type: "email", required: true, placeholder: "coordinator@school.example" })), h("button", { type: "submit" }, "Invite")));
+
+  show(h("p", {}, h("button", { class: "ghost", onclick: () => listView() }, "← All schools")), flashBox, edit, code, people);
+}
+
+loginView();
+</script>
+</body>
+</html>

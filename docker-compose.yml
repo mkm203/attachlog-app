@@ -1,0 +1,32 @@
+# Local development: the API and a local Postgres (production uses Turso; the code runs on both).
+#   docker compose up --build        ->  API on http://localhost:8000  (docs at /docs)
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: attachlog
+      POSTGRES_PASSWORD: attachlog
+      POSTGRES_DB: attachlog
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U attachlog -d attachlog"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://attachlog:attachlog@db:5432/attachlog
+      JWT_SECRET: local-dev-secret-change-me-at-least-32-chars
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: local-admin-password-123
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

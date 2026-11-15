@@ -1,0 +1,28 @@
+# Render Blueprint: the API and the admin panel run as ONE web service (free tier).
+# The database is NOT on Render: it is a free Turso database (turso.tech). Paste its URL and token below.
+# Deploy with: Render dashboard > New > Blueprint > pick this repository.
+services:
+  - type: web
+    name: attachlog-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: DATABASE_URL        # Turso: libsql://<database>-<org>.turso.io   (Neon/Postgres URLs also work)
+        sync: false
+      - key: TURSO_AUTH_TOKEN    # Turso database token (leave empty for Postgres)
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL         # you: the login of the admin panel at /admin
+        sync: false
+      - key: ADMIN_PASSWORD      # choose a long one; changing it and redeploying resets it
+        sync: false
+      - key: RESEND_API_KEY      # optional: lets the app email invitations and reset codes
+        sync: false
+      - key: MAIL_FROM           # optional: e.g. AttachLog <noreply@yourdomain>
+        sync: false

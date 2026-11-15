@@ -1,0 +1,137 @@
+import { useState } from 'react';
+import { View } from 'react-native';
+
+import type { Decision, Entry, Placement, Review } from '../api/types';
+import { t } from '../i18n';
+import { formatDate, statusLabel } from '../lib/format';
+import { hasErrors, validateReview } from '../lib/validation';
+import type { FieldErrors } from '../lib/validation';
+import { useNav } from '../nav/Navigator';
+import { useSession, useUser } from '../state/session';
+import { useAsync } from '../state/useAsync';
+import { AsyncPage, Body, Button, Card, ErrorBanner, Pill, Row, SectionTitle, TextField, Title } from '../ui/kit';
+import { colors, statusColors } from '../ui/theme';
+
+interface Loaded {
+  entry: Entry;
+  reviews: Review[];
+  placement: Placement;
+}
+
+export function EntryScreen({ id }: { id: string }) {
+  const { api } = useSession();
+  const nav = useNav();
+  const state = useAsync<Loaded>(async () => {
+    const entry = await api.getEntry(id);
+    const [reviews, placement] = await Promise.all([api.listReviews(id), api.getPlacement(entry.placement_id)]);
+    return { entry, reviews, placement };
+  }, [api, id, nav.revision]);
+
+  return <AsyncPage state={state}>{(data) => <EntryBody data={data} />}</AsyncPage>;
+}
+
+/** Reviews store the reviewer's id; the placement knows the name of its supervisor. */
+export function reviewerName(placement: Placement, reviewerId: string): string {
+  return reviewerId === placement.company_supervisor_id && placement.company_supervisor_name
+    ? placement.company_supervisor_name
+    : t('Company supervisor');
+}
+
+function EntryBody({ data }: { data: Loaded }) {
+  const { entry, reviews, placement } = data;
+  const user = useUser();
+  const nav = useNav();
+  const c = statusColors[entry.status];
+
+  const canRevise = user.role === 'student' && entry.student_id === user.sub
+    && entry.status !== 'approved' && placement.status === 'open';
+  const canReview = user.role === 'company_supervisor' && placement.company_supervisor_id === user.sub
+    && entry.status === 'pending';
+
+  return (
+    <>
+      <Card>
+        <Row>
+          <View style={{ flex: 1 }}>
+            <Title>{t('Week {n}', { n: entry.week })}</Title>
+            <Body muted>{placement.student_name} · {placement.company_name}</Body>
+          </View>
+          <Pill label={statusLabel(entry.status)} fg={c.fg} bg={c.bg} />
+        </Row>
+        <Body bold>{t('{n} hours', { n: entry.hours })}</Body>
+        <Body>{entry.tasks}</Body>
+        {entry.status === 'approved' ? <Body muted>{t('Approved entries are locked.')}</Body> : null}
+      </Card>
+
+      {canRevise ? (
+        <Button
+          title={entry.status === 'rejected' ? t('Revise and resubmit') : t('Edit entry')}
+          onPress={() => nav.push({
+            name: 'entryForm', placementId: placement.id, totalWeeks: placement.total_weeks, week: entry.week, entry,
+          })}
+        />
+      ) : null}
+
+      {canReview ? <ReviewPanel entryId={entry.id} /> : null}
+
+      <SectionTitle>{t('Review history')}</SectionTitle>
+      {reviews.length === 0 ? <Body muted>{t('No review yet.')}</Body> : null}
+      {reviews.map((r) => (
+        <Card key={r.id}>
+          <Row>
+            <Pill
+              label={statusLabel(r.decision)}
+              fg={r.decision === 'approved' ? colors.ok : colors.danger}
+              bg={r.decision === 'approved' ? colors.okBg : colors.dangerBg}
+            />
+            <Body muted>{reviewerName(placement, r.reviewer_id)} · {formatDate(r.created_at)}</Body>
+          </Row>
+          {r.comment ? <Body>{r.comment}</Body> : null}
+        </Card>
+      ))}
+    </>
+  );
+}
+
+function ReviewPanel({ entryId }: { entryId: string }) {
+  const { api } = useSession();
+  const nav = useNav();
+  const [comment, setComment] = useState('');
+  const [errors, setErrors] = useState<FieldErrors<'comment'>>({});
+  const [failure, setFailure] = useState<unknown>(null);
+  const [busy, setBusy] = useState<Decision | null>(null);
+
+  const submit = async (decision: Decision) => {
+    const found = validateReview(decision, comment);
+    setErrors(found);
+    setFailure(null);
+    if (hasErrors(found)) return;
+    setBusy(decision);
+    try {
+      await api.reviewEntry(entryId, decision, comment);
+      nav.refresh();
+      nav.pop();
+    } catch (e) {
+      setFailure(e);
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Card>
+      <SectionTitle>{t('Your review')}</SectionTitle>
+      {failure ? <ErrorBanner error={failure} /> : null}
+      <TextField
+        label={t('Comment')}
+        value={comment}
+        onChangeText={setComment}
+        error={errors.comment}
+        multiline
+        hint={t('Required when you reject.')}
+        maxLength={1000}
+      />
+      <Button title={t('Approve')} onPress={() => submit('approved')} loading={busy === 'approved'} disabled={busy !== null} />
+      <Button title={t('Reject')} variant="danger" onPress={() => submit('rejected')} loading={busy === 'rejected'} disabled={busy !== null} />
+    </Card>
+  );
+}

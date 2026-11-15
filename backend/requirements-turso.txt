@@ -1,0 +1,3 @@
+# The Turso (libSQL) driver. Experimental and Linux/macOS only (on Windows use Docker or WSL).
+sqlalchemy-libsql>=0.2.0
+libsql-experimental

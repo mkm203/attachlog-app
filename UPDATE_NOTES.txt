@@ -1,0 +1,4 @@
+Copy every file in this zip over your project (same paths). Nothing was deleted.
+Then: cd mobile && npx expo install @react-native-community/datetimepicker
+      cd backend && pip install -r requirements.txt   (Alembic added)
+Turso: see README "Deploy". Run `pytest` in backend before deploying.
