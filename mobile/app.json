@@ -5,14 +5,20 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "splash": { "image": "./assets/splash-icon.png", "resizeMode": "contain", "backgroundColor": "#F3F5F7" },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F3F5F7"
+    },
     "userInterfaceStyle": "light",
     "backgroundColor": "#F3F5F7",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.attachlog.app",
       "infoPlist": {
-        "NSAppTransportSecurity": { "NSAllowsLocalNetworking": true },
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
         "NSLocalNetworkUsageDescription": "AttachLog connects to the logbook server on your local network."
       }
     },
@@ -23,9 +29,21 @@
         "backgroundColor": "#0B6B5D"
       }
     },
-    "web": { "favicon": "./assets/favicon.png" },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
-      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-secure-store",
+      "expo-status-bar",
+      "@react-native-community/datetimepicker"
     ]
   }
 }

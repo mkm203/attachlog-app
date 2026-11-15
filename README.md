@@ -65,7 +65,12 @@ Render's free web service sleeps after about 15 idle minutes and takes up to a m
 
 The administrator account is controlled by the environment: change `ADMIN_PASSWORD` and redeploy to reset it.
 
-**Email (optional).** With a free [Resend](https://resend.com) key in `RESEND_API_KEY`, invitations and password-reset codes are emailed. Resend's test sender (`onboarding@resend.dev`) only delivers to your own address; to email other people you must verify a domain with Resend. Without a key everything still works: codes are shown on screen (and shareable by WhatsApp from the app) and, for someone locked out, the admin panel can create a temporary password.
+**Email (optional).** Invitations and password-reset codes are emailed when one of these is set (the first found is used):
+- **Gmail:** turn on 2-step verification, create an App Password at myaccount.google.com/apppasswords, then set `SMTP_USER` (your address) and `SMTP_PASSWORD` (the 16 characters). Works on your own computer. **Render's free plan blocks SMTP**, so it will not work there.
+- **Brevo** (free, HTTPS, works on Render free): create an API key, verify your sender address in Brevo, set `BREVO_API_KEY` and `MAIL_FROM` (for example `AttachLog <you@gmail.com>`).
+- **Resend:** `RESEND_API_KEY`; its test sender only delivers to your own address until you verify a domain.
+
+Without any of them everything still works: codes are shown on screen (and shareable by WhatsApp from the app) and, for someone locked out, the admin panel can create a temporary password. If sending fails the code is still shown, and the server log says why.
 
 ## Run the app
 

@@ -22,6 +22,8 @@ services:
         sync: false
       - key: ADMIN_PASSWORD      # choose a long one; changing it and redeploying resets it
         sync: false
+      - key: BREVO_API_KEY       # optional: email through Brevo (works on Render free; verify your sender in Brevo)
+        sync: false
       - key: RESEND_API_KEY      # optional: lets the app email invitations and reset codes
         sync: false
       - key: MAIL_FROM           # optional: e.g. AttachLog <noreply@yourdomain>

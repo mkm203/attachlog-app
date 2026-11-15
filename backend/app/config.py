@@ -79,5 +79,33 @@ def resend_api_key() -> str:
     return os.getenv("RESEND_API_KEY", "")
 
 
+def brevo_api_key() -> str:
+    """Optional. Brevo's email API (free plan) can send from your own verified address to anyone."""
+    return os.getenv("BREVO_API_KEY", "")
+
+
+def smtp_user() -> str:
+    """Optional. For Gmail: your address, with an App Password in SMTP_PASSWORD."""
+    return os.getenv("SMTP_USER", "").strip()
+
+
+def smtp_password() -> str:
+    return os.getenv("SMTP_PASSWORD", "").replace(" ", "")      # Google shows app passwords in groups of four
+
+
+def smtp_host() -> str:
+    return os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
+
+
+def smtp_port() -> int:
+    return int(os.getenv("SMTP_PORT", "587"))
+
+
 def mail_from() -> str:
-    return os.getenv("MAIL_FROM", "AttachLog <onboarding@resend.dev>")
+    """The sender. With Gmail it defaults to your own address (Gmail rewrites any other one)."""
+    explicit = os.getenv("MAIL_FROM", "").strip()
+    if explicit:
+        return explicit
+    if smtp_user() and not resend_api_key():
+        return f"AttachLog <{smtp_user()}>"
+    return "AttachLog <onboarding@resend.dev>"
