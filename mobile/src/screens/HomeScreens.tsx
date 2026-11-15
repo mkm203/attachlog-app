@@ -138,7 +138,7 @@ export function AcademicSupervisorHome() {
     <AsyncPage state={state}>
       {(rows) => (
         <>
-          <Greeting subtitle={t('Interns you supervise ({n})', { n: rows.length })} />
+          <Greeting subtitle={user.contextLabel ?? undefined} />
           <SectionTitle>{t('Interns you supervise ({n})', { n: rows.length })}</SectionTitle>
           {rows.length === 0 ? <Empty title={t('No placements assigned to you')} /> : null}
           {rows.map(({ placement, progress }) => (

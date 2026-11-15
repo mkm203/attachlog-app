@@ -40,7 +40,7 @@ def check_term(data: SchoolIn) -> None:
 def grant_out(db: Session, email: str, role: str, created_by: str, school: School) -> GrantOut:
     status, invite = grant_or_invite(db, email, role, created_by, school=school)
     return GrantOut(status=status, email=email, invite=InviteOut.model_validate(invite) if invite else None,
-                    email_sent=bool(invite) and mailer.enabled())
+                    email_sent=bool(invite) and bool(getattr(invite, "email_sent", False)))
 
 
 def detail(db: Session, school: School) -> SchoolDetail:

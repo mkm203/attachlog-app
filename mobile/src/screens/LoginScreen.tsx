@@ -3,14 +3,15 @@ import { Image, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AttachLogClient } from '../api/client';
-import { SERVER_LOCKED, normalizeServer } from '../api/config';
+import { SERVER_LOCKED, SHOW_SERVER_SETTINGS, normalizeServer } from '../api/config';
 import { friendlyMessage } from '../api/errors';
 import { t } from '../i18n';
 import { hasErrors, validateLogin, validateNewPassword, validateRegister } from '../lib/validation';
 import type { FieldErrors } from '../lib/validation';
 import { useSession } from '../state/session';
-import { Button, Card, ErrorBanner, Notice, Page, TextField, Title } from '../ui/kit';
-import { colors, shadow } from '../ui/theme';
+import { Button, Card, ErrorBanner, Marked, Notice, Page, TextField, Title } from '../ui/kit';
+import { fonts } from '../ui/fonts';
+import { colors } from '../ui/theme';
 import { LanguageChips } from '../ui/LanguageChips';
 import { ConnectionCheck } from './ConnectionCheck';
 
@@ -57,22 +58,20 @@ export function LoginScreen() {
 
   return (
     <Page flush>
-      <View style={{ backgroundColor: colors.primary, paddingTop: insets.top + 28, paddingBottom: 56, paddingHorizontal: 24, alignItems: 'center', gap: 10 }}>
-        <View style={{ width: 92, height: 92, borderRadius: 26, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', ...shadow }}>
-          <Image source={require('../../assets/splash-icon.png')} style={{ width: 72, height: 72 }} accessibilityLabel="AttachLog logo" />
-        </View>
-        <Text style={{ color: colors.onPrimary, fontSize: 30, fontWeight: '800', letterSpacing: -0.5 }}>AttachLog</Text>
-        <Text style={{ color: '#CFE8E3', fontSize: 15, textAlign: 'center' }}>
+      <View style={{ paddingTop: insets.top + 36, paddingBottom: 28, paddingHorizontal: 24, gap: 10 }}>
+        <Image source={require('../../assets/splash-icon.png')} style={{ width: 76, height: 76 }} accessibilityLabel="AttachLog logo" />
+        <Marked size={38}>AttachLog</Marked>
+        <Text style={{ color: colors.muted, fontSize: 16, fontFamily: fonts.display, fontStyle: 'italic', maxWidth: 300 }}>
           {t('Internship logbook for students, schools and companies')}
         </Text>
       </View>
 
-      <View style={{ marginTop: -32, paddingHorizontal: 16, gap: 16, paddingBottom: 32 }}>
+      <View style={{ paddingHorizontal: 16, gap: 16, paddingBottom: 32 }}>
         {notice ? <Notice>{notice}</Notice> : null}
         {failure ? <ErrorBanner message={failure} /> : null}
 
         <Card>
-          <Text style={{ fontSize: 20, fontWeight: '800', color: colors.text }}>
+          <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text, fontFamily: fonts.display }}>
             {mode === 'login' ? t('Sign in') : t('Create account')}
           </Text>
           {mode === 'register' ? (
@@ -102,7 +101,7 @@ export function LoginScreen() {
 
         <View style={{ alignItems: 'center' }}><LanguageChips /></View>
 
-        {!SERVER_LOCKED ? (
+        {SHOW_SERVER_SETTINGS ? (
           <>
             <Pressable accessibilityRole="button" onPress={() => setShowServer((v) => !v)} style={{ paddingVertical: 8 }}>
               <Text style={{ color: colors.muted, fontSize: 14, textAlign: 'center' }}>

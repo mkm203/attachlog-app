@@ -85,11 +85,13 @@ def grant_or_invite(db: Session, email: str, role: str, created_by: str, *, scho
                         created_by=created_by, expires_at=now() + timedelta(days=INVITE_DAYS))
         db.add(invite)
         db.flush()
-        where = school.name if school else company.name if company else "AttachLog"
-        mailer.send(email, f"You are invited to AttachLog ({where})",
-                    f"You have been invited to {where} on AttachLog as: {role.replace('_', ' ')}.\n\n"
-                    f"1. Install the AttachLog app.\n2. Choose 'Create account' and enter this code: {invite.code}\n"
-                    f"3. Use this email address ({email}).\n\nThe code works for {INVITE_DAYS} days.")
+    # Send (or send again) every time the invitation is requested: the first attempt may have failed.
+    where = school.name if school else company.name if company else "AttachLog"
+    invite.email_sent = mailer.send(  # a plain attribute, not a column: it only says what happened just now
+        email, f"You are invited to AttachLog ({where})",
+        f"You have been invited to {where} on AttachLog as: {role.replace('_', ' ')}.\n\n"
+        f"1. Install the AttachLog app.\n2. Choose 'Create account' and enter this code: {invite.code}\n"
+        f"3. Use this email address ({email}).\n\nThe code works for {INVITE_DAYS} days.")
     return "invited", invite
 
 

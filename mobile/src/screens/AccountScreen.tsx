@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { normalizeServer } from '../api/config';
+import { SHOW_SERVER_SETTINGS, normalizeServer } from '../api/config';
 import { friendlyMessage } from '../api/errors';
 import { t } from '../i18n';
 import { hasErrors, validateNewPassword } from '../lib/validation';
@@ -109,6 +109,8 @@ export function AccountScreen() {
         <LanguageChips />
       </Card>
 
+      {SHOW_SERVER_SETTINGS ? (
+        <>
       <SectionTitle>{t('Server')}</SectionTitle>
       <Card>
         <TextField label={t('Server address')} value={address} onChangeText={(t) => { setAddress(t); setSaved(false); }}
@@ -116,6 +118,8 @@ export function AccountScreen() {
         <Button title={t('Save address')} variant="ghost" onPress={save} disabled={normalizeServer(address) === server} />
         <ConnectionCheck server={normalizeServer(address) || server} />
       </Card>
+        </>
+      ) : null}
 
       <View style={{ marginTop: 8 }}>
         <Button title={t('Sign out')} variant="danger" onPress={() => signOut()} />

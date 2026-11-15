@@ -3,6 +3,7 @@
  * (see eas.json); for local testing people type it on the login screen.
  */
 declare const process: { env: Record<string, string | undefined> };
+declare const __DEV__: boolean | undefined;
 
 /** The Android emulator reaches the computer running it through 10.0.2.2. */
 export const LOCAL_DEFAULT = 'http://10.0.2.2:8000';
@@ -11,6 +12,9 @@ export const DEFAULT_SERVER: string = process.env.EXPO_PUBLIC_API_URL?.trim() ||
 
 /** A build that carries its own server address (EXPO_PUBLIC_API_URL) never shows server settings. */
 export const SERVER_LOCKED: boolean = !!process.env.EXPO_PUBLIC_API_URL?.trim();
+
+/** Server settings exist only while developing against your own computer. */
+export const SHOW_SERVER_SETTINGS: boolean = !SERVER_LOCKED && typeof __DEV__ !== 'undefined' && !!__DEV__;
 
 const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
 

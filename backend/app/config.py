@@ -9,18 +9,19 @@ def _load_env_file() -> None:
     Uvicorn does not read .env by itself, so without this the settings in it would be ignored."""
     if os.getenv("ATTACHLOG_SKIP_DOTENV") == "1":      # the tests must not pick up a developer's .env
         return
-    path = Path(__file__).resolve().parent.parent / ".env"
-    if not path.is_file():
-        return
-    for line in path.read_text(encoding="utf-8-sig").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+    # backend/.env on your computer; /etc/secrets/.env is where Render puts a "Secret File" named .env
+    for path in (Path(__file__).resolve().parent.parent / ".env", Path("/etc/secrets/.env")):
+        if not path.is_file():
             continue
-        key, value = line.split("=", 1)
-        key, value = key.strip().removeprefix("export ").strip(), value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-            value = value[1:-1]
-        os.environ.setdefault(key, value)
+        for line in path.read_text(encoding="utf-8-sig").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key, value = key.strip().removeprefix("export ").strip(), value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            os.environ.setdefault(key, value)
 
 
 _load_env_file()

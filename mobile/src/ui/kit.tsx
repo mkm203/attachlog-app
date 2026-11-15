@@ -10,7 +10,8 @@ import { friendlyMessage } from '../api/errors';
 import type { AsyncState } from '../state/useAsync';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
-import { colors, radius, shadow, space } from './theme';
+import { fonts } from './fonts';
+import { colors, radius, space } from './theme';
 
 // ------------------------------------------------------------------ text
 
@@ -18,12 +19,29 @@ export function Title({ children }: { children: ReactNode }) {
   return <Text accessibilityRole="header" style={styles.title}>{children}</Text>;
 }
 
+/** A heading written on the rule of a notebook line. */
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <Text accessibilityRole="header" style={styles.section}>{children}</Text>;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: space.md }}>
+      <Text accessibilityRole="header" style={styles.section}>{children}</Text>
+      <View style={{ flex: 1, height: 1.5, backgroundColor: colors.border }} />
+    </View>
+  );
 }
 
 export function Body({ children, muted, bold }: { children: ReactNode; muted?: boolean; bold?: boolean }) {
-  return <Text style={[styles.body, muted && { color: colors.muted }, bold && { fontWeight: '600' }]}>{children}</Text>;
+  return <Text style={[styles.body, muted && { color: colors.muted }, bold && { fontWeight: '700' }]}>{children}</Text>;
+}
+
+/** The ruled paper behind every screen. */
+export function Paper() {
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
+      {Array.from({ length: 42 }, (_, i) => (
+        <View key={i} style={{ position: 'absolute', left: 0, right: 0, top: 30 + i * 30, height: 1, backgroundColor: colors.rule }} />
+      ))}
+    </View>
+  );
 }
 
 // ---------------------------------------------------------------- layout
@@ -53,7 +71,7 @@ export function Page({ children, onRefresh, refreshing, flush }: {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        style={{ flex: 1, backgroundColor: colors.bg }}
+        style={{ flex: 1 }}
         contentContainerStyle={flush ? { paddingBottom: space.lg } : styles.page}
         keyboardShouldPersistTaps="handled"
         refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} /> : undefined}
@@ -114,11 +132,11 @@ export function Notice({ children }: { children: ReactNode }) {
   );
 }
 
+/** A rubber stamp: slightly crooked, outlined in its own ink. */
 export function Pill({ label, fg, bg }: { label: string; fg: string; bg: string }) {
   return (
-    <View style={[styles.pill, { backgroundColor: bg }]}>
-      <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: fg }} />
-      <Text style={{ color: fg, fontSize: 13, fontWeight: '700' }}>{label}</Text>
+    <View style={[styles.pill, { borderColor: fg, backgroundColor: bg, transform: [{ rotate: '-2deg' }] }]}>
+      <Text style={{ color: fg, fontSize: 13, fontWeight: '800', fontFamily: fonts.mono }}>{label}</Text>
     </View>
   );
 }
@@ -131,7 +149,7 @@ export function ProgressBar({ percent, color = colors.primary }: { percent: numb
       accessibilityValue={{ min: 0, max: 100, now: Math.round(clamped) }}
       style={styles.track}
     >
-      <View style={{ width: `${clamped}%`, height: '100%', backgroundColor: color, borderRadius: 8 }} />
+      <View style={{ width: `${clamped}%`, height: '100%', backgroundColor: color }} />
     </View>
   );
 }
@@ -156,8 +174,8 @@ export function Button({ title, onPress, variant = 'primary', loading, disabled 
       onPress={onPress}
       style={({ pressed }: { pressed: boolean }) => [
         styles.button,
-        filled && shadow,
-        { backgroundColor: bg, borderColor: filled ? bg : colors.border, opacity: off ? 0.55 : pressed ? 0.88 : 1 },
+        { backgroundColor: filled ? bg : colors.card, borderColor: filled ? (variant === 'danger' ? '#7C1912' : colors.primaryDark) : colors.primary,
+          borderBottomWidth: pressed ? 2 : 4, marginTop: pressed ? 2 : 0, opacity: off ? 0.55 : 1 },
       ]}
     >
       {loading ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontSize: 16, fontWeight: '700' }}>{title}</Text>}
@@ -198,7 +216,7 @@ export function TextField({ label, value, onChangeText, error, hint, multiline, 
           styles.input,
           multiline && { minHeight: 110 },
           !editable && { backgroundColor: colors.track },
-          focused && { borderColor: colors.primary, backgroundColor: colors.card },
+          focused && { borderColor: colors.primary, borderWidth: 2.5 },
           !!error && { borderColor: colors.danger },
         ]}
         {...rest}
@@ -224,70 +242,81 @@ export function Chip({ label, selected, onPress }: { label: string; selected: bo
 
 // ------------------------------------------------------------- showpieces
 
-/** Round badge with initials, for people. */
+/** An index-tab style badge with initials. */
 export function Avatar({ name, size = 44 }: { name: string; size?: number }) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const initials = ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? parts[parts.length - 1]![0]! : '')).toUpperCase();
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: colors.primary, fontWeight: '800', fontSize: size * 0.38 }}>{initials}</Text>
+    <View style={{ width: size, height: size, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: colors.onPrimary, fontFamily: fonts.mono, fontWeight: '800', fontSize: size * 0.36 }}>{initials}</Text>
     </View>
   );
 }
 
-/** A row of big numbers, for the top of a home screen. */
+/** Text with a highlighter stroke behind it. */
+export function Marked({ children, size, color = colors.primaryDark, mono }: {
+  children: ReactNode; size: number; color?: string; mono?: boolean;
+}) {
+  return (
+    <View style={{ alignSelf: 'flex-start' }}>
+      <View style={{ position: 'absolute', zIndex: 1, left: -3, right: -3, bottom: size * 0.1, height: size * 0.4, backgroundColor: colors.highlight }} />
+      <Text style={{ position: 'relative', zIndex: 2, fontSize: size, fontWeight: '800', color, fontFamily: mono ? fonts.mono : fonts.display }}>{children}</Text>
+    </View>
+  );
+}
+
+/** Totals written in the margin, typewriter style. */
 export function Stats({ items }: { items: { label: string; value: string | number; tone?: 'ok' | 'warn' | 'plain' }[] }) {
   return (
     <View style={{ flexDirection: 'row', gap: space.sm }}>
       {items.map((it) => (
         <View key={it.label} style={styles.stat}>
-          <Text style={{ fontSize: 26, fontWeight: '800', color: it.tone === 'warn' ? colors.warn : it.tone === 'ok' ? colors.ok : colors.primary }}>{it.value}</Text>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }} numberOfLines={1}>{it.label}</Text>
+          <Marked size={28} mono>{it.value}</Marked>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.muted }} numberOfLines={1}>{it.label}</Text>
         </View>
       ))}
     </View>
   );
 }
 
-/** A greeting band at the top of a page. */
+/** The title written on the cover of the page. */
 export function Hero({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <View style={styles.hero}>
-      <Text style={{ color: colors.onPrimary, fontSize: 24, fontWeight: '800', letterSpacing: -0.3 }}>{title}</Text>
-      {subtitle ? <Text style={{ color: '#CFE8E3', fontSize: 15 }}>{subtitle}</Text> : null}
+    <View style={{ gap: 6, paddingTop: space.sm }}>
+      <Marked size={32}>{title}</Marked>
+      {subtitle ? <Text style={{ color: colors.muted, fontSize: 15, fontFamily: fonts.display, fontStyle: 'italic' }}>{subtitle}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  stat: { flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: space.md, gap: 2, borderWidth: 1, borderColor: colors.border, ...shadow },
-  hero: { backgroundColor: colors.primary, borderRadius: radius + 4, padding: space.lg, gap: 4, ...shadow },
-  title: { fontSize: 22, fontWeight: '800', color: colors.text, letterSpacing: -0.3 },
-  section: { fontSize: 13, fontWeight: '800', color: colors.muted, marginTop: space.md, letterSpacing: 1, textTransform: 'uppercase' },
+  stat: { flex: 1, backgroundColor: colors.card, borderRadius: radius, padding: space.md, gap: 6, borderWidth: 1.5, borderColor: colors.border },
+  title: { fontFamily: fonts.display, fontSize: 24, fontWeight: '700', color: colors.text },
+  section: { fontFamily: fonts.display, fontSize: 18, fontWeight: '700', color: colors.primaryDark },
   body: { fontSize: 16, color: colors.text, lineHeight: 22 },
   card: {
     backgroundColor: colors.card, borderRadius: radius, padding: space.md, gap: space.sm,
-    borderWidth: 1, borderColor: colors.border, ...shadow,
+    borderWidth: 1.5, borderColor: colors.border,
   },
   page: { padding: space.md, gap: space.md, paddingBottom: space.lg * 2 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', gap: space.xs, paddingVertical: space.lg, paddingHorizontal: space.md },
-  emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: space.sm },
-  errorBanner: { backgroundColor: colors.dangerBg, borderRadius: 14, padding: space.md },
+  emptyIcon: { width: 64, height: 64, borderRadius: 14, backgroundColor: colors.highlight, borderWidth: 1.5, borderColor: colors.primaryDark, transform: [{ rotate: '-4deg' }], alignItems: 'center', justifyContent: 'center', marginBottom: space.sm },
+  errorBanner: { backgroundColor: colors.dangerBg, borderRadius: 10, padding: space.md },
   notice: { backgroundColor: colors.warnBg, borderRadius: 14, padding: space.md },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, alignSelf: 'flex-start' },
-  track: { height: 12, borderRadius: 8, backgroundColor: colors.track, overflow: 'hidden' },
+  pill: { paddingHorizontal: 9, paddingVertical: 2, borderRadius: 6, borderWidth: 2, alignSelf: 'flex-start' },
+  track: { height: 14, borderRadius: 4, backgroundColor: colors.track, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.border },
   button: {
-    minHeight: 52, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+    minHeight: 52, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: space.md,
   },
-  label: { fontSize: 14, fontWeight: '700', color: colors.text },
+  label: { fontSize: 14, fontWeight: '700', color: colors.primaryDark },
   input: {
-    minHeight: 52, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: '#F8FBFA',
+    minHeight: 52, borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
     paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: colors.text,
   },
   chip: {
-    minHeight: 38, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1.5, borderColor: colors.border,
+    minHeight: 38, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1.5, borderColor: colors.border,
     backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center',
   },
 });

@@ -9,7 +9,8 @@ import { useNav } from '../nav/Navigator';
 import { useSession, useUser } from '../state/session';
 import { useAsync } from '../state/useAsync';
 import { reviewerName } from './EntryScreen';
-import { AsyncPage, Avatar, Body, Button, Card, Pill, ProgressBar, Row, SectionTitle, Title } from '../ui/kit';
+import { AsyncPage, Avatar, Body, Marked, Button, Card, Pill, ProgressBar, Row, SectionTitle, Title } from '../ui/kit';
+import { fonts } from '../ui/fonts';
 import { colors, statusColors } from '../ui/theme';
 
 interface Loaded {
@@ -74,7 +75,7 @@ function PlacementBody({ data }: { data: Loaded }) {
 
       <Card>
         <Row>
-          <Text style={{ fontSize: 34, fontWeight: '700', color: colors.primary }}>{formatPercent(progress.completion_percent)}</Text>
+          <Marked size={36} mono>{formatPercent(progress.completion_percent)}</Marked>
           <Body muted>{t('complete')}</Body>
         </Row>
         <ProgressBar percent={progress.completion_percent} />
@@ -123,7 +124,7 @@ function PlacementBody({ data }: { data: Loaded }) {
       {!open ? (
         <Card>
           <Title>{t('Final evaluation')}</Title>
-          <Text style={{ fontSize: 28, fontWeight: '700', color: colors.primary }}>{placement.final_score ?? '–'} / 20</Text>
+          <Marked size={32} mono>{`${placement.final_score ?? '–'} / 20`}</Marked>
           {placement.final_comment ? <Body>{placement.final_comment}</Body> : null}
         </Card>
       ) : null}
@@ -155,7 +156,10 @@ function WeekGrid({ total, byWeek, onPress }: {
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {weeks.map((week) => {
         const entry = byWeek.get(week);
-        const c = entry ? statusColors[entry.status] : null;
+        const st = entry?.status;
+        const fill = st === 'approved' ? colors.primary : st === 'pending' ? colors.highlight : st === 'rejected' ? colors.dangerBg : 'transparent';
+        const ink = st === 'approved' ? colors.onPrimary : st === 'rejected' ? colors.danger : st === 'pending' ? colors.text : colors.muted;
+        const line = st === 'approved' ? colors.primaryDark : st === 'rejected' ? colors.danger : st === 'pending' ? colors.warn : colors.border;
         return (
           <Pressable
             key={week}
@@ -163,11 +167,11 @@ function WeekGrid({ total, byWeek, onPress }: {
             accessibilityLabel={`${t('Week {n}', { n: week })}, ${entry ? statusLabel(entry.status) : t('no entry')}`}
             onPress={() => onPress(week)}
             style={{
-              width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-              backgroundColor: c ? c.bg : colors.card, borderWidth: 1.5, borderColor: c ? c.fg : colors.border,
+              width: 52, height: 52, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+              backgroundColor: fill, borderWidth: 1.5, borderColor: line, borderStyle: entry ? 'solid' : 'dashed',
             }}
           >
-            <Text style={{ fontSize: 16, fontWeight: '700', color: c ? c.fg : colors.muted }}>{week}</Text>
+            <Text style={{ fontSize: 17, fontWeight: '800', color: ink, fontFamily: fonts.mono }}>{week}</Text>
           </Pressable>
         );
       })}
