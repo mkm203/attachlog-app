@@ -9,12 +9,12 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://attachlog-api.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://attachlog-app.onrender.com"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://attachlog-api.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://attachlog-app.onrender.com"
       }
     }
   }

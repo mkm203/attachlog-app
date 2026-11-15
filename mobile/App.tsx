@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Role } from './src/api/types';
 import { t } from './src/i18n';
@@ -19,6 +19,8 @@ import { CloseFormScreen, PlacementFormScreen, SupervisorsFormScreen } from './s
 import { LanguageProvider } from './src/state/language';
 import { SessionProvider, useSession, useUser } from './src/state/session';
 import { Body, Empty, Page } from './src/ui/kit';
+import { Icon } from './src/ui/Icon';
+import type { IconName } from './src/ui/Icon';
 import { colors } from './src/ui/theme';
 
 function homeTitle(role: Role): string {
@@ -81,18 +83,26 @@ function Screen({ route, role }: { route: Route; role: Role | null }) {
 function Shell() {
   const user = useUser();
   const nav = useNav();
+  const insets = useSafeAreaInsets();
+  const tabs = user.role === 'coordinator' ? (['home', 'school', 'account'] as const) : (['home', 'account'] as const);
+  const iconFor = (tab: 'home' | 'school' | 'account', active: boolean): IconName =>
+    tab === 'home' ? (active ? 'home' : 'home-outline')
+      : tab === 'school' ? (active ? 'school' : 'school-outline') : (active ? 'person-circle' : 'person-circle-outline');
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingHorizontal: 8, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        {nav.canGoBack ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={t('Back')} onPress={nav.pop}
-            style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 26, color: colors.primary }}>‹</Text>
-          </Pressable>
-        ) : <View style={{ width: 8 }} />}
-        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>
-          {titleFor(nav.route, user.role)}
-        </Text>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={{ backgroundColor: colors.primary, paddingTop: insets.top }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingHorizontal: 8, gap: 4 }}>
+          {nav.canGoBack ? (
+            <Pressable accessibilityRole="button" accessibilityLabel={t('Back')} onPress={nav.pop}
+              style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="chevron-back" size={26} color={colors.onPrimary} />
+            </Pressable>
+          ) : <View style={{ width: 10 }} />}
+          <Text accessibilityRole="header" numberOfLines={1}
+            style={{ flex: 1, fontSize: 19, fontWeight: '800', color: colors.onPrimary, letterSpacing: -0.2 }}>
+            {titleFor(nav.route, user.role)}
+          </Text>
+        </View>
       </View>
 
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -100,14 +110,20 @@ function Shell() {
       </View>
 
       {!nav.canGoBack ? (
-        <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
-          {(user.role === 'coordinator' ? ['home', 'school', 'account'] as const : ['home', 'account'] as const).map((tab) => {
+        <View style={{
+          flexDirection: 'row', backgroundColor: colors.card, paddingBottom: Math.max(insets.bottom, 6), paddingTop: 6,
+          borderTopWidth: 1, borderTopColor: colors.border,
+        }}>
+          {tabs.map((tab) => {
             const active = nav.tab === tab;
             return (
               <Pressable key={tab} accessibilityRole="tab" accessibilityState={{ selected: active }}
                 onPress={() => nav.setTab(tab)}
-                style={{ flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: active ? colors.primary : colors.muted }}>
+                style={{ flex: 1, minHeight: 54, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                <View style={{ paddingHorizontal: 18, paddingVertical: 4, borderRadius: 999, backgroundColor: active ? colors.primarySoft : 'transparent' }}>
+                  <Icon name={iconFor(tab, active)} size={22} color={active ? colors.primary : colors.muted} />
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: active ? colors.primary : colors.muted }}>
                   {tab === 'home' ? t('Home') : tab === 'school' ? t('School') : t('Account')}
                 </Text>
               </Pressable>
@@ -115,7 +131,7 @@ function Shell() {
           })}
         </View>
       ) : null}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -129,11 +145,7 @@ function Root() {
     );
   }
   if (!session) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-        <LoginScreen />
-      </SafeAreaView>
-    );
+    return <LoginScreen />;
   }
   return <NavProvider><Shell /></NavProvider>;
 }
@@ -143,7 +155,7 @@ export default function App() {
     <SafeAreaProvider>
       <LanguageProvider>
         <SessionProvider>
-          <StatusBar style="dark" />
+          <StatusBar style="light" />
           <Root />
         </SessionProvider>
       </LanguageProvider>

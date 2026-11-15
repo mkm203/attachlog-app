@@ -86,6 +86,8 @@ npx expo start
 
 Scan the QR code with Expo Go. If Expo Go says the project is incompatible, set `expo` in `package.json` to the SDK it names and run `npx expo install --fix` again. The first time, under **Server settings** on the login screen, enter your API address and press **Test connection** (or build with the address in `eas.json`).
 
+**Server address.** Copy `mobile/.env.example` to `mobile/.env` and put your Render address in `EXPO_PUBLIC_API_URL`. With it set the app is locked to that server and never shows "Server settings" (restart `npx expo start -c` after changing it). Without it (local development) the settings box appears on the login screen.
+
 ### Build the installable app with EAS (Android APK)
 
 ```powershell

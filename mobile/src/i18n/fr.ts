@@ -1,5 +1,9 @@
 /* French wording, keyed by the English text. Have a native speaker review it. */
 export const FR: Record<string, string> = {
+  "Dates": "Dates",
+  "Hello, {name}": "Bonjour, {name}",
+  "{n} entries are waiting for your review.": "{n} entrées attendent votre validation.",
+  "To review": "À valider",
   "(has not joined yet)": "(n'a pas encore rejoint)",
   "6-digit code": "Code à 6 chiffres",
   "A free server can take up to a minute to wake up.": "Un serveur gratuit peut mettre jusqu'à une minute à se réveiller.",

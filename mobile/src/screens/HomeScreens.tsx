@@ -8,7 +8,8 @@ import { formatPercent, formatRange, statusLabel } from '../lib/format';
 import { useNav } from '../nav/Navigator';
 import { useSession, useUser } from '../state/session';
 import { useAsync } from '../state/useAsync';
-import { AsyncPage, Body, Button, Card, Chip, Empty, Pill, ProgressBar, Row, SectionTitle } from '../ui/kit';
+import { AsyncPage, Avatar, Body, Button, Card, Chip, Empty, Hero, Pill, ProgressBar, Row, SectionTitle, Stats } from '../ui/kit';
+import { Icon } from '../ui/Icon';
 import { colors, statusColors } from '../ui/theme';
 import { PlacementScreen } from './PlacementScreen';
 
@@ -20,17 +21,27 @@ function PlacementCard({ placement, children }: { placement: Placement; children
       onPress={() => nav.push({ name: 'placement', id: placement.id })}
       label={`${placement.student_name}, ${placement.company_name}`}
     >
-      <Row>
+      <Row gap={12}>
+        <Avatar name={placement.student_name} />
         <View style={{ flex: 1 }}>
           <Body bold>{placement.student_name}</Body>
           <Body muted>{placement.company_name} · {placement.company_city}</Body>
         </View>
-        <Pill label={open ? t('Open') : t('Closed')} fg={open ? colors.ok : colors.muted} bg={open ? colors.okBg : colors.track} />
+        <Icon name="chevron-forward" size={20} color={colors.muted} />
       </Row>
-      <Body muted>{formatRange(placement.start_date, placement.end_date)}</Body>
+      <Row>
+        <Pill label={open ? t('Open') : t('Closed')} fg={open ? colors.ok : colors.muted} bg={open ? colors.okBg : colors.track} />
+        <Body muted>{formatRange(placement.start_date, placement.end_date)}</Body>
+      </Row>
       {children}
     </Card>
   );
+}
+
+function Greeting({ subtitle }: { subtitle?: string }) {
+  const user = useUser();
+  const first = (user.name ?? '').trim().split(/\s+/)[0] ?? '';
+  return <Hero title={first ? t('Hello, {name}', { name: first }) : t('Welcome')} subtitle={subtitle} />;
 }
 
 // ---------------------------------------------------------------- student
@@ -73,8 +84,13 @@ export function CompanySupervisorHome() {
     <AsyncPage state={state}>
       {({ mine, queue }) => (
         <>
+          <Greeting subtitle={queue.length ? t('{n} entries are waiting for your review.', { n: queue.length }) : t('Nothing waiting for your review')} />
+          <Stats items={[
+            { label: t('To review'), value: queue.length, tone: queue.length ? 'warn' : 'plain' },
+            { label: t('My interns'), value: mine.length },
+          ]} />
           <SectionTitle>{t('To review ({n})', { n: queue.length })}</SectionTitle>
-          {queue.length === 0 ? <Empty title={t('Nothing waiting for your review')} /> : null}
+          {queue.length === 0 ? <Empty icon="checkmark-done-outline" title={t('Nothing waiting for your review')} /> : null}
           {queue.map(({ entry, placement }) => (
             <QueueCard key={entry.id} entry={entry} placement={placement} />
           ))}
@@ -92,7 +108,8 @@ function QueueCard({ entry, placement }: { entry: Entry; placement: Placement })
   const c = statusColors.pending;
   return (
     <Card onPress={() => nav.push({ name: 'entry', id: entry.id })} label={`${placement.student_name}, ${t('Week {n}', { n: entry.week })}`}>
-      <Row>
+      <Row gap={12}>
+        <Avatar name={placement.student_name} />
         <View style={{ flex: 1 }}>
           <Body bold>{placement.student_name} · {t('Week {n}', { n: entry.week })}</Body>
           <Body muted>{entry.hours} h · {placement.company_name}</Body>
@@ -121,6 +138,7 @@ export function AcademicSupervisorHome() {
     <AsyncPage state={state}>
       {(rows) => (
         <>
+          <Greeting subtitle={t('Interns you supervise ({n})', { n: rows.length })} />
           <SectionTitle>{t('Interns you supervise ({n})', { n: rows.length })}</SectionTitle>
           {rows.length === 0 ? <Empty title={t('No placements assigned to you')} /> : null}
           {rows.map(({ placement, progress }) => (
@@ -163,6 +181,12 @@ export function CoordinatorHome() {
     <AsyncPage state={state}>
       {(placements) => (
         <>
+          <Greeting subtitle={user.contextLabel ?? undefined} />
+          <Stats items={[
+            { label: t('Placements'), value: placements.length },
+            { label: t('Open'), value: placements.filter((p) => p.status === 'open').length, tone: 'ok' },
+            { label: t('Closed'), value: placements.filter((p) => p.status === 'closed').length },
+          ]} />
           <Button title={t('New placement')} onPress={() => nav.push({ name: 'placementForm' })} />
           <Row>
             {(['all', 'open', 'closed'] as const).map((f) => (

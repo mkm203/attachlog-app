@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AttachLogClient } from '../api/client';
-import { normalizeServer } from '../api/config';
+import { SERVER_LOCKED, normalizeServer } from '../api/config';
 import { friendlyMessage } from '../api/errors';
 import { t } from '../i18n';
 import { hasErrors, validateLogin, validateNewPassword, validateRegister } from '../lib/validation';
 import type { FieldErrors } from '../lib/validation';
 import { useSession } from '../state/session';
-import { Body, Button, Card, ErrorBanner, Notice, Page, TextField, Title } from '../ui/kit';
-import { colors } from '../ui/theme';
+import { Button, Card, ErrorBanner, Notice, Page, TextField, Title } from '../ui/kit';
+import { colors, shadow } from '../ui/theme';
 import { LanguageChips } from '../ui/LanguageChips';
 import { ConnectionCheck } from './ConnectionCheck';
 
@@ -17,6 +18,7 @@ type Mode = 'login' | 'register' | 'forgot';
 
 export function LoginScreen() {
   const { signIn, register, server, notice } = useSession();
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -45,62 +47,78 @@ export function LoginScreen() {
     }
   };
 
-  if (mode === 'forgot') return <ForgotPassword server={normalizeServer(address) || server} onDone={() => go('login')} />;
+  if (mode === 'forgot') {
+    return (
+      <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.bg }}>
+        <ForgotPassword server={SERVER_LOCKED ? server : normalizeServer(address) || server} onDone={() => go('login')} />
+      </View>
+    );
+  }
 
   return (
-    <Page>
-      <View style={{ alignItems: 'center', gap: 6, marginTop: 16 }}>
-        <Image source={require('../../assets/splash-icon.png')} style={{ width: 88, height: 88 }} accessibilityLabel="AttachLog logo" />
-        <Title>AttachLog</Title>
-        <Body muted>{t('Internship logbook for students, schools and companies')}</Body>
+    <Page flush>
+      <View style={{ backgroundColor: colors.primary, paddingTop: insets.top + 28, paddingBottom: 56, paddingHorizontal: 24, alignItems: 'center', gap: 10 }}>
+        <View style={{ width: 92, height: 92, borderRadius: 26, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', ...shadow }}>
+          <Image source={require('../../assets/splash-icon.png')} style={{ width: 72, height: 72 }} accessibilityLabel="AttachLog logo" />
+        </View>
+        <Text style={{ color: colors.onPrimary, fontSize: 30, fontWeight: '800', letterSpacing: -0.5 }}>AttachLog</Text>
+        <Text style={{ color: '#CFE8E3', fontSize: 15, textAlign: 'center' }}>
+          {t('Internship logbook for students, schools and companies')}
+        </Text>
       </View>
 
-      {notice ? <Notice>{notice}</Notice> : null}
-      {failure ? <ErrorBanner message={failure} /> : null}
+      <View style={{ marginTop: -32, paddingHorizontal: 16, gap: 16, paddingBottom: 32 }}>
+        {notice ? <Notice>{notice}</Notice> : null}
+        {failure ? <ErrorBanner message={failure} /> : null}
 
-      <Card>
-        {mode === 'register' ? (
-          <>
+        <Card>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: colors.text }}>
+            {mode === 'login' ? t('Sign in') : t('Create account')}
+          </Text>
+          {mode === 'register' ? (
             <TextField label={t('Full name')} value={name} onChangeText={setName} error={errors.name} autoCapitalize="words" />
+          ) : null}
+          <TextField label={t('Email')} value={email} onChangeText={setEmail} error={errors.email}
+            autoCapitalize="none" keyboardType="email-address" />
+          <TextField label={t('Password')} value={password} onChangeText={setPassword} error={errors.password}
+            secureTextEntry autoCapitalize="none" hint={mode === 'register' ? t('At least 8 characters.') : undefined} />
+          {mode === 'register' ? (
+            <TextField label={t('Code')} value={code} onChangeText={setCode} error={errors.code} autoCapitalize="none"
+              hint={t("Students: your school's code. Supervisors and coordinators: the code from your invitation.")} />
+          ) : null}
+          <Button title={mode === 'login' ? t('Sign in') : t('Create account')} onPress={submit} loading={busy} />
+          {mode === 'login' ? (
+            <Pressable accessibilityRole="button" onPress={() => go('forgot')} style={{ paddingVertical: 4 }}>
+              <Text style={{ color: colors.muted, fontSize: 15, textAlign: 'center' }}>{t('Forgot your password?')}</Text>
+            </Pressable>
+          ) : null}
+        </Card>
+
+        <Pressable accessibilityRole="button" onPress={() => go(mode === 'login' ? 'register' : 'login')} style={{ paddingVertical: 8 }}>
+          <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '700', textAlign: 'center' }}>
+            {mode === 'login' ? t('New here? Create an account with a code') : t('I already have an account')}
+          </Text>
+        </Pressable>
+
+        <View style={{ alignItems: 'center' }}><LanguageChips /></View>
+
+        {!SERVER_LOCKED ? (
+          <>
+            <Pressable accessibilityRole="button" onPress={() => setShowServer((v) => !v)} style={{ paddingVertical: 8 }}>
+              <Text style={{ color: colors.muted, fontSize: 14, textAlign: 'center' }}>
+                {showServer ? t('Hide server settings') : t('Server settings')}
+              </Text>
+            </Pressable>
+            {showServer ? (
+              <Card>
+                <TextField label={t('Server address')} value={address} onChangeText={setAddress} autoCapitalize="none"
+                  hint={t('Only change this if you were given a different server address.')} />
+                <ConnectionCheck server={normalizeServer(address) || server} />
+              </Card>
+            ) : null}
           </>
         ) : null}
-        <TextField label={t('Email')} value={email} onChangeText={setEmail} error={errors.email}
-          autoCapitalize="none" keyboardType="email-address" />
-        <TextField label={t('Password')} value={password} onChangeText={setPassword} error={errors.password}
-          secureTextEntry autoCapitalize="none" hint={mode === 'register' ? t('At least 8 characters.') : undefined} />
-        {mode === 'register' ? (
-          <TextField label={t('Code')} value={code} onChangeText={setCode} error={errors.code} autoCapitalize="none"
-            hint={t("Students: your school's code. Supervisors and coordinators: the code from your invitation.")} />
-        ) : null}
-        <Button title={mode === 'login' ? t('Sign in') : t('Create account')} onPress={submit} loading={busy} />
-      </Card>
-
-      <Pressable accessibilityRole="button" onPress={() => go(mode === 'login' ? 'register' : 'login')} style={{ paddingVertical: 8 }}>
-        <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '600', textAlign: 'center' }}>
-          {mode === 'login' ? t('New here? Create an account with a code') : t('I already have an account')}
-        </Text>
-      </Pressable>
-      {mode === 'login' ? (
-        <Pressable accessibilityRole="button" onPress={() => go('forgot')} style={{ paddingVertical: 4 }}>
-          <Text style={{ color: colors.muted, fontSize: 15, textAlign: 'center' }}>{t('Forgot your password?')}</Text>
-        </Pressable>
-      ) : null}
-
-      <View style={{ alignItems: 'center' }}><LanguageChips /></View>
-
-      <Pressable accessibilityRole="button" onPress={() => setShowServer((s) => !s)} style={{ paddingVertical: 8 }}>
-        <Text style={{ color: colors.muted, fontSize: 14, textAlign: 'center' }}>
-          {showServer ? t('Hide server settings') : t('Server settings')}
-        </Text>
-      </Pressable>
-
-      {showServer ? (
-        <Card>
-          <TextField label={t('Server address')} value={address} onChangeText={setAddress} autoCapitalize="none"
-            hint={t('Only change this if you were given a different server address.')} />
-          <ConnectionCheck server={normalizeServer(address) || server} />
-        </Card>
-      ) : null}
+      </View>
     </Page>
   );
 }

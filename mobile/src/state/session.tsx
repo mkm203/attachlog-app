@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react';
 
 import { AttachLogClient, toSession } from '../api/client';
-import { DEFAULT_SERVER, normalizeServer } from '../api/config';
+import { DEFAULT_SERVER, SERVER_LOCKED, normalizeServer } from '../api/config';
 import type { LoginResult, Me, Session } from '../api/types';
 import { t } from '../i18n';
 import { parseSession, toAccount } from './account';
@@ -41,7 +41,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       const [savedServer, savedSession] = await Promise.all([getItem(SERVER_KEY), getItem(SESSION_KEY)]);
-      if (savedServer) setServerState(savedServer);
+      if (savedServer && !SERVER_LOCKED) setServerState(savedServer);
       const restored = parseSession(savedSession);
       if (restored) setSession(restored);
       else if (savedSession) await removeItem(SESSION_KEY);
@@ -77,7 +77,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const targetFor = useCallback(
-    (serverAddress?: string) => (serverAddress === undefined ? server : normalizeServer(serverAddress) || DEFAULT_SERVER),
+    (serverAddress?: string) => (serverAddress === undefined || SERVER_LOCKED ? server : normalizeServer(serverAddress) || DEFAULT_SERVER),
     [server],
   );
 

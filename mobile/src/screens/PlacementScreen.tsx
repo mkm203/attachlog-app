@@ -9,7 +9,7 @@ import { useNav } from '../nav/Navigator';
 import { useSession, useUser } from '../state/session';
 import { useAsync } from '../state/useAsync';
 import { reviewerName } from './EntryScreen';
-import { AsyncPage, Body, Button, Card, Pill, ProgressBar, Row, SectionTitle, Title } from '../ui/kit';
+import { AsyncPage, Avatar, Body, Button, Card, Pill, ProgressBar, Row, SectionTitle, Title } from '../ui/kit';
 import { colors, statusColors } from '../ui/theme';
 
 interface Loaded {
@@ -53,7 +53,8 @@ function PlacementBody({ data }: { data: Loaded }) {
   return (
     <>
       <Card>
-        <Row>
+        <Row gap={12}>
+          <Avatar name={placement.student_name} size={52} />
           <View style={{ flex: 1 }}>
             <Title>{placement.student_name}</Title>
             <Body muted>{placement.company_name} · {placement.company_city}</Body>
@@ -64,11 +65,11 @@ function PlacementBody({ data }: { data: Loaded }) {
             bg={open ? colors.okBg : colors.track}
           />
         </Row>
-        <Body muted>{formatRange(placement.start_date, placement.end_date)} · {t('{n} weeks', { n: placement.total_weeks })}</Body>
-        <Body muted>{t('Academic supervisor')} {placement.academic_supervisor_name}</Body>
-        <Body muted>
-          {t('Company supervisor')} {placement.company_supervisor_name ?? `${placement.company_supervisor_email} ${t('(has not joined yet)')}`}
-        </Body>
+        <View style={{ height: 1, backgroundColor: colors.border }} />
+        <Fact label={t('Dates')} value={`${formatRange(placement.start_date, placement.end_date)} · ${t('{n} weeks', { n: placement.total_weeks })}`} />
+        <Fact label={t('Academic supervisor')} value={placement.academic_supervisor_name} />
+        <Fact label={t('Company supervisor')}
+          value={placement.company_supervisor_name ?? `${placement.company_supervisor_email} ${t('(has not joined yet)')}`} />
       </Card>
 
       <Card>
@@ -137,6 +138,15 @@ function PlacementBody({ data }: { data: Loaded }) {
   );
 }
 
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ gap: 2 }}>
+      <Text style={{ fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 0.8, textTransform: 'uppercase' }}>{label}</Text>
+      <Body>{value}</Body>
+    </View>
+  );
+}
+
 function WeekGrid({ total, byWeek, onPress }: {
   total: number; byWeek: Map<number, Entry>; onPress: (week: number) => void;
 }) {
@@ -153,7 +163,7 @@ function WeekGrid({ total, byWeek, onPress }: {
             accessibilityLabel={`${t('Week {n}', { n: week })}, ${entry ? statusLabel(entry.status) : t('no entry')}`}
             onPress={() => onPress(week)}
             style={{
-              width: 52, height: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+              width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
               backgroundColor: c ? c.bg : colors.card, borderWidth: 1.5, borderColor: c ? c.fg : colors.border,
             }}
           >

@@ -9,6 +9,9 @@ export const LOCAL_DEFAULT = 'http://10.0.2.2:8000';
 
 export const DEFAULT_SERVER: string = process.env.EXPO_PUBLIC_API_URL?.trim() || LOCAL_DEFAULT;
 
+/** A build that carries its own server address (EXPO_PUBLIC_API_URL) never shows server settings. */
+export const SERVER_LOCKED: boolean = !!process.env.EXPO_PUBLIC_API_URL?.trim();
+
 const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
 
 /**

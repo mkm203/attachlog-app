@@ -1,4 +1,5 @@
 import { t } from '../i18n';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet,
@@ -7,7 +8,9 @@ import {
 
 import { friendlyMessage } from '../api/errors';
 import type { AsyncState } from '../state/useAsync';
-import { colors, radius, space } from './theme';
+import { Icon } from './Icon';
+import type { IconName } from './Icon';
+import { colors, radius, shadow, space } from './theme';
 
 // ------------------------------------------------------------------ text
 
@@ -32,7 +35,7 @@ export function Card({ children, onPress, label }: { children: ReactNode; onPres
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }: { pressed: boolean }) => [styles.card, pressed && { opacity: 0.85 }]}
+      style={({ pressed }: { pressed: boolean }) => [styles.card, pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] }]}
     >
       {children}
     </Pressable>
@@ -44,14 +47,14 @@ export function Row({ children, gap = space.sm }: { children: ReactNode; gap?: n
 }
 
 /** A scrolling page with the standard gutter and keyboard handling. */
-export function Page({ children, onRefresh, refreshing }: {
-  children: ReactNode; onRefresh?: () => void; refreshing?: boolean;
+export function Page({ children, onRefresh, refreshing, flush }: {
+  children: ReactNode; onRefresh?: () => void; refreshing?: boolean; flush?: boolean;
 }) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
         style={{ flex: 1, backgroundColor: colors.bg }}
-        contentContainerStyle={styles.page}
+        contentContainerStyle={flush ? { paddingBottom: space.lg } : styles.page}
         keyboardShouldPersistTaps="handled"
         refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} /> : undefined}
       >
@@ -82,9 +85,10 @@ export function AsyncPage<T>({ state, children }: { state: AsyncState<T>; childr
   );
 }
 
-export function Empty({ title, hint }: { title: string; hint?: string }) {
+export function Empty({ title, hint, icon = 'document-text-outline' }: { title: string; hint?: string; icon?: IconName }) {
   return (
     <View style={styles.empty}>
+      <View style={styles.emptyIcon}><Icon name={icon} size={30} color={colors.primary} /></View>
       <Text style={[styles.body, { fontWeight: '600', textAlign: 'center' }]}>{title}</Text>
       {hint ? <Text style={[styles.body, { color: colors.muted, textAlign: 'center' }]}>{hint}</Text> : null}
     </View>
@@ -113,7 +117,8 @@ export function Notice({ children }: { children: ReactNode }) {
 export function Pill({ label, fg, bg }: { label: string; fg: string; bg: string }) {
   return (
     <View style={[styles.pill, { backgroundColor: bg }]}>
-      <Text style={{ color: fg, fontSize: 13, fontWeight: '600' }}>{label}</Text>
+      <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: fg }} />
+      <Text style={{ color: fg, fontSize: 13, fontWeight: '700' }}>{label}</Text>
     </View>
   );
 }
@@ -126,7 +131,7 @@ export function ProgressBar({ percent, color = colors.primary }: { percent: numb
       accessibilityValue={{ min: 0, max: 100, now: Math.round(clamped) }}
       style={styles.track}
     >
-      <View style={{ width: `${clamped}%`, height: '100%', backgroundColor: color, borderRadius: 6 }} />
+      <View style={{ width: `${clamped}%`, height: '100%', backgroundColor: color, borderRadius: 8 }} />
     </View>
   );
 }
@@ -151,10 +156,11 @@ export function Button({ title, onPress, variant = 'primary', loading, disabled 
       onPress={onPress}
       style={({ pressed }: { pressed: boolean }) => [
         styles.button,
-        { backgroundColor: bg, borderColor: filled ? bg : colors.border, opacity: off ? 0.55 : pressed ? 0.85 : 1 },
+        filled && shadow,
+        { backgroundColor: bg, borderColor: filled ? bg : colors.border, opacity: off ? 0.55 : pressed ? 0.88 : 1 },
       ]}
     >
-      {loading ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontSize: 16, fontWeight: '600' }}>{title}</Text>}
+      {loading ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontSize: 16, fontWeight: '700' }}>{title}</Text>}
     </Pressable>
   );
 }
@@ -173,6 +179,7 @@ export function TextField({ label, value, onChangeText, error, hint, multiline, 
   autoCapitalize?: 'none' | 'sentences' | 'words';
   maxLength?: number;
 }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: 6 }}>
       <Text style={styles.label}>{label}</Text>
@@ -185,10 +192,13 @@ export function TextField({ label, value, onChangeText, error, hint, multiline, 
         textAlignVertical={multiline ? 'top' : 'center'}
         autoCorrect={false}
         placeholderTextColor={colors.muted}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         style={[
           styles.input,
           multiline && { minHeight: 110 },
           !editable && { backgroundColor: colors.track },
+          focused && { borderColor: colors.primary, backgroundColor: colors.card },
           !!error && { borderColor: colors.danger },
         ]}
         {...rest}
@@ -212,32 +222,72 @@ export function Chip({ label, selected, onPress }: { label: string; selected: bo
   );
 }
 
+// ------------------------------------------------------------- showpieces
+
+/** Round badge with initials, for people. */
+export function Avatar({ name, size = 44 }: { name: string; size?: number }) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const initials = ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? parts[parts.length - 1]![0]! : '')).toUpperCase();
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: colors.primary, fontWeight: '800', fontSize: size * 0.38 }}>{initials}</Text>
+    </View>
+  );
+}
+
+/** A row of big numbers, for the top of a home screen. */
+export function Stats({ items }: { items: { label: string; value: string | number; tone?: 'ok' | 'warn' | 'plain' }[] }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: space.sm }}>
+      {items.map((it) => (
+        <View key={it.label} style={styles.stat}>
+          <Text style={{ fontSize: 26, fontWeight: '800', color: it.tone === 'warn' ? colors.warn : it.tone === 'ok' ? colors.ok : colors.primary }}>{it.value}</Text>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }} numberOfLines={1}>{it.label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** A greeting band at the top of a page. */
+export function Hero({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <View style={styles.hero}>
+      <Text style={{ color: colors.onPrimary, fontSize: 24, fontWeight: '800', letterSpacing: -0.3 }}>{title}</Text>
+      {subtitle ? <Text style={{ color: '#CFE8E3', fontSize: 15 }}>{subtitle}</Text> : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  title: { fontSize: 22, fontWeight: '700', color: colors.text },
-  section: { fontSize: 17, fontWeight: '700', color: colors.text, marginTop: space.sm },
+  stat: { flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: space.md, gap: 2, borderWidth: 1, borderColor: colors.border, ...shadow },
+  hero: { backgroundColor: colors.primary, borderRadius: radius + 4, padding: space.lg, gap: 4, ...shadow },
+  title: { fontSize: 22, fontWeight: '800', color: colors.text, letterSpacing: -0.3 },
+  section: { fontSize: 13, fontWeight: '800', color: colors.muted, marginTop: space.md, letterSpacing: 1, textTransform: 'uppercase' },
   body: { fontSize: 16, color: colors.text, lineHeight: 22 },
   card: {
     backgroundColor: colors.card, borderRadius: radius, padding: space.md, gap: space.sm,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
+    borderWidth: 1, borderColor: colors.border, ...shadow,
   },
   page: { padding: space.md, gap: space.md, paddingBottom: space.lg * 2 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-  empty: { alignItems: 'center', gap: space.xs, paddingVertical: space.lg },
-  errorBanner: { backgroundColor: colors.dangerBg, borderRadius: 10, padding: space.md },
-  notice: { backgroundColor: colors.warnBg, borderRadius: 10, padding: space.md },
-  pill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, alignSelf: 'flex-start' },
-  track: { height: 10, borderRadius: 6, backgroundColor: colors.track, overflow: 'hidden' },
+  empty: { alignItems: 'center', gap: space.xs, paddingVertical: space.lg, paddingHorizontal: space.md },
+  emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: space.sm },
+  errorBanner: { backgroundColor: colors.dangerBg, borderRadius: 14, padding: space.md },
+  notice: { backgroundColor: colors.warnBg, borderRadius: 14, padding: space.md },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, alignSelf: 'flex-start' },
+  track: { height: 12, borderRadius: 8, backgroundColor: colors.track, overflow: 'hidden' },
   button: {
-    minHeight: 48, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+    minHeight: 52, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: space.md,
   },
-  label: { fontSize: 14, fontWeight: '600', color: colors.text },
+  label: { fontSize: 14, fontWeight: '700', color: colors.text },
   input: {
-    minHeight: 48, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
-    paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, color: colors.text,
+    minHeight: 52, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: '#F8FBFA',
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: colors.text,
   },
   chip: {
-    minHeight: 36, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: colors.border,
+    minHeight: 38, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1.5, borderColor: colors.border,
     backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center',
   },
 });
