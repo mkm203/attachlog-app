@@ -21,6 +21,8 @@ export class ApiError extends Error {
 const MESSAGES: Record<string, string> = {
   invalid_credentials: 'Wrong email or password.',
   email_taken: 'This email already has an account. Sign in instead, then use "Join with a code" in Account.',
+  email_unchanged: 'This is already your email address.',
+  email_delivery_unavailable: 'The verification email could not be sent. Check the email setup and try again.',
   invalid_code: 'This code is not valid, was already used, or has expired. Check it or ask for a new one.',
   invite_email_mismatch: 'This code was sent to a different email address. Use the address it was sent to.',
   wrong_password: 'The current password is wrong.',

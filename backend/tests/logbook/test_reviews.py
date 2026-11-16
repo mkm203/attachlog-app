@@ -76,3 +76,25 @@ def test_progress_for_the_academic_supervisor(client):
     assert (p["approved"], p["rejected"], p["pending"]) == (1, 1, 1)
     assert p["completion_percent"] == 25.0
     assert p["comments"] == [{"week": 2, "decision": "rejected", "comment": "Missing hours", "reviewer_id": "cs-1"}]
+
+
+def test_assigned_academic_supervisor_can_leave_feedback_after_approval(client):
+    eid = submit(client).json()["id"]
+    assert review(client, eid).status_code == 201
+
+    feedback = client.post(f"/v1/entries/{eid}/feedback",
+                           json={"decision": "approved", "comment": "Good progress"},
+                           headers=ACADEMIC)
+    assert feedback.status_code == 201 and feedback.json()["reviewer_id"] == "as-1"
+    assert client.get(f"/v1/entries/{eid}", headers=STUDENT).json()["status"] == "approved"
+    assert client.post(f"/v1/entries/{eid}/feedback",
+                       json={"decision": "approved", "comment": "Another note"},
+                       headers=ACADEMIC).status_code == 409
+
+
+def test_academic_feedback_requires_company_approval(client):
+    eid = submit(client).json()["id"]
+    response = client.post(f"/v1/entries/{eid}/feedback",
+                           json={"decision": "approved", "comment": "Not ready"},
+                           headers=ACADEMIC)
+    assert response.status_code == 409 and response.json()["error"]["code"] == "entry_not_approved"

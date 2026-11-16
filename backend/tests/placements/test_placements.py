@@ -1,4 +1,5 @@
-from tests.conftest import COORDINATOR
+from tests.conftest import COORDINATOR, PASSWORD, STUDENT, SUPERVISOR
+from app.models import User
 
 PLACEMENT = {"student_id": "stu-1", "academic_supervisor_id": "as-1", "company_name": "Douala Tech SARL",
              "company_city": "Douala", "company_supervisor_email": "cs-1@example.com",
@@ -20,6 +21,42 @@ def test_create_and_get(client):
     assert body["status"] == "open" and body["total_weeks"] == 12 and body["school_id"] == "S1"
     assert body["student_name"] == "Clarisse Ngo" and body["academic_supervisor_name"] == "Elise Ngono"
     assert client.get(f"/v1/placements/{body['id']}", headers=COORDINATOR).json() == body
+
+
+def test_placement_responses_include_current_profile_photos(client):
+    body = make(client).json()
+    changed = client.put("/v1/me", headers=STUDENT, json={
+        "name": "Clarisse Updated", "avatar": "data:image/jpeg;base64,student",
+    })
+    assert changed.status_code == 200
+    with client.session() as db:
+        db.get(User, "as-1").avatar = "data:image/jpeg;base64,academic"
+        db.get(User, "cs-1").avatar = "data:image/jpeg;base64,company"
+        db.commit()
+
+    body = client.get(f"/v1/placements/{body['id']}", headers=COORDINATOR).json()
+    assert body["student_name"] == "Clarisse Updated"
+    assert body["student_avatar"] == "data:image/jpeg;base64,student"
+    assert body["academic_supervisor_avatar"] == "data:image/jpeg;base64,academic"
+    assert body["company_supervisor_avatar"] == "data:image/jpeg;base64,company"
+    listed = client.get("/v1/placements", headers=COORDINATOR).json()["items"][0]
+    assert listed["student_avatar"] == body["student_avatar"]
+
+
+def test_company_supervisor_email_change_updates_linked_placements(client, monkeypatch):
+    placement = make(client).json()
+    sent = []
+    monkeypatch.setattr("app.auth.mailer.enabled", lambda: True)
+    monkeypatch.setattr("app.auth.mailer.send", lambda to, subject, text: sent.append((to, text)) or True)
+    requested = client.post("/v1/me/email-change",
+                            json={"current_password": PASSWORD, "new_email": "paul.new@example.com"},
+                            headers=SUPERVISOR)
+    assert requested.status_code == 202
+    code = sent[0][1].split("code is ", 1)[1].split(".", 1)[0]
+    changed = client.post("/v1/me/email-change/confirm", json={"code": code}, headers=SUPERVISOR)
+    assert changed.status_code == 200 and changed.json()["email"] == "paul.new@example.com"
+    updated = client.get(f"/v1/placements/{placement['id']}", headers=COORDINATOR).json()
+    assert updated["company_supervisor_email"] == "paul.new@example.com"
 
 
 def test_known_company_supervisor_is_linked_at_once(client):

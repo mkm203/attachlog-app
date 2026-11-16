@@ -164,6 +164,16 @@ export class AttachLogClient {
     });
   }
 
+  requestEmailChange(currentPassword: string, newEmail: string) {
+    return this.rest<{ status: string }>('/v1/me/email-change', {
+      method: 'POST', body: { current_password: currentPassword, new_email: newEmail },
+    });
+  }
+
+  confirmEmailChange(code: string) {
+    return this.rest<Me>('/v1/me/email-change/confirm', { method: 'POST', body: { code } });
+  }
+
   updateProfile(profile: { name: string; phone?: string | null; field_of_study?: string | null; specialty?: string | null; teaching_field?: string | null; bio?: string | null; avatar?: string | null }) {
     return this.rest<Me>('/v1/me', { method: 'PUT', body: profile });
   }

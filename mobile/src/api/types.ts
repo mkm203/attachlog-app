@@ -20,14 +20,17 @@ export interface Placement {
   company_id: string;
   student_id: string;
   student_name: string;
+  student_avatar: string | null;
   company_name: string;
   company_city: string;
   /** Null until the invited company supervisor has created an account. */
   company_supervisor_id: string | null;
   company_supervisor_name: string | null;
+  company_supervisor_avatar: string | null;
   company_supervisor_email: string;
   academic_supervisor_id: string;
   academic_supervisor_name: string;
+  academic_supervisor_avatar: string | null;
   start_date: string; // YYYY-MM-DD
   end_date: string;
   total_weeks: number;

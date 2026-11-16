@@ -139,6 +139,9 @@ def academic_feedback(entry_id: str, data: ReviewCreate, db: DB, user: Anyone):
         raise ApiError(409, "entry_not_approved", "Academic feedback can be added once the company supervisor has approved the entry")
     if not (data.comment and data.comment.strip()):
         raise ApiError(422, "comment_required", "Feedback needs a comment")
+    existing = db.scalar(select(Review.id).where(Review.entry_id == entry.id, Review.reviewer_id == user.id))
+    if existing is not None:
+        raise ApiError(409, "academic_feedback_exists", "You have already left feedback on this entry")
     review = Review(entry_id=entry.id, reviewer_id=user.id, decision="approved", comment=data.comment.strip())
     db.add(review)
     audit.record(db, actor_id=user.id, action="entry_academic_feedback", placement_id=placement.id, school_id=placement.school_id,

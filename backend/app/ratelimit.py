@@ -55,8 +55,9 @@ login_by_ip = Limiter(limit=30, window_seconds=300)
 # wrong or reused codes (sign-up, join, reset), and reset-code requests
 code_attempts = Limiter(limit=10, window_seconds=600)
 reset_requests = Limiter(limit=5, window_seconds=900)
+email_change_requests = Limiter(limit=5, window_seconds=900)
 
-ALL = (login_by_email, login_by_ip, code_attempts, reset_requests)
+ALL = (login_by_email, login_by_ip, code_attempts, reset_requests, email_change_requests)
 
 
 def reset_all() -> None:

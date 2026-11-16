@@ -1,6 +1,7 @@
 import { t } from '../i18n';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import type { StyleProp, TextStyle } from 'react-native';
 import {
   ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, View,
@@ -31,8 +32,10 @@ export function SectionTitle({ children }: { children: ReactNode }) {
   return <Text accessibilityRole="header" style={useStyles().section}>{children}</Text>;
 }
 
-export function Body({ children, muted, bold }: { children: ReactNode; muted?: boolean; bold?: boolean }) {
-  return <Text style={[useStyles().body, muted && { color: colors.muted }, bold && { fontWeight: '700' }]}>{children}</Text>;
+export function Body({ children, muted, bold, style }: {
+  children: ReactNode; muted?: boolean; bold?: boolean; style?: StyleProp<TextStyle>;
+}) {
+  return <Text style={[useStyles().body, muted && { color: colors.muted }, bold && { fontWeight: '700' }, style]}>{children}</Text>;
 }
 
 // ---------------------------------------------------------------- layout

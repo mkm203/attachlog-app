@@ -111,6 +111,20 @@ class PasswordReset(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class EmailChange(Base):
+    __tablename__ = "email_changes"
+    __table_args__ = (UniqueConstraint("user_id", name="uq_email_change_user"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    new_email: Mapped[str] = mapped_column(String(254))
+    code_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 class Placement(Base):
     """The hub: one student, one school, one company, two supervisors."""
     __tablename__ = "placements"

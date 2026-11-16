@@ -54,7 +54,7 @@ function EntryBody({ data }: { data: Loaded }) {
     <>
       <Card>
         <Row gap={12}>
-          <Avatar name={placement.student_name} />
+          <Avatar name={placement.student_name} uri={placement.student_avatar} />
           <View style={{ flex: 1 }}>
             <Title>{t('Week {n}', { n: entry.week })}</Title>
             <Body muted>{placement.student_name} · {placement.company_name}</Body>

@@ -17,7 +17,7 @@ import { colors } from '../ui/theme';
 
 type MultiPlacementForm = {
   student_ids: string[];
-  academic_supervisor_id: string;
+  supervisor_by_student: Record<string, string>;
   company_name: string;
   company_city: string;
   company_supervisor_email: string;
@@ -26,7 +26,7 @@ type MultiPlacementForm = {
 };
 
 const EMPTY: MultiPlacementForm = {
-  student_ids: [], academic_supervisor_id: '', company_name: '', company_city: '',
+  student_ids: [], supervisor_by_student: {}, company_name: '', company_city: '',
   company_supervisor_email: '', start_date: '', end_date: '',
 };
 
@@ -79,8 +79,13 @@ function SupervisorPicker({ label, value, onChange, error }: {
 }
 
 /** Multi-select students grouped by field of study / specialty for easy batch assignment. */
-function StudentGroupPicker({ selected, onChange, error }: {
-  selected: string[]; onChange: (ids: string[]) => void; error?: string;
+function StudentGroupPicker({ selected, onChange, supervisorByStudent, onAssignSupervisor, error, assignmentError }: {
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  supervisorByStudent: Record<string, string>;
+  onAssignSupervisor: (studentIds: string[], supervisorId: string) => void;
+  error?: string;
+  assignmentError?: string;
 }) {
   const { api } = useSession();
   const user = useUser();
@@ -126,6 +131,10 @@ function StudentGroupPicker({ selected, onChange, error }: {
       {groups.map(([label, members]) => {
         const open = openGroup === label || !!q;
         const allSelected = members.every((m) => selected.includes(m.user_id));
+        const selectedInGroup = members.filter((m) => selected.includes(m.user_id));
+        const firstSupervisor = selectedInGroup.length ? supervisorByStudent[selectedInGroup[0]!.user_id] : undefined;
+        const sameSupervisor = !!firstSupervisor
+          && selectedInGroup.every((m) => supervisorByStudent[m.user_id] === firstSupervisor);
         return (
           <Card key={label}>
             <Row>
@@ -154,12 +163,25 @@ function StudentGroupPicker({ selected, onChange, error }: {
                     </Row>
                   </Card>
                 ))}
+                {selectedInGroup.length ? (
+                  <>
+                    {!sameSupervisor && selectedInGroup.some((m) => supervisorByStudent[m.user_id]) ? (
+                      <Body muted>{t('Students in this group have different supervisors.')}</Body>
+                    ) : null}
+                    <SupervisorPicker
+                      label={t('Academic supervisor for {n} selected students', { n: selectedInGroup.length })}
+                      value={sameSupervisor ? firstSupervisor : ''}
+                      onChange={(supervisorId) => onAssignSupervisor(selectedInGroup.map((m) => m.user_id), supervisorId)}
+                    />
+                  </>
+                ) : null}
               </View>
             ) : null}
           </Card>
         );
       })}
       {error ? <Body style={{ color: colors.danger }}>{error}</Body> : null}
+      {assignmentError ? <Body style={{ color: colors.danger }}>{assignmentError}</Body> : null}
     </View>
   );
 }
@@ -167,7 +189,9 @@ function StudentGroupPicker({ selected, onChange, error }: {
 function validateMulti(form: MultiPlacementForm): FieldErrors<keyof MultiPlacementForm> {
   const errors: FieldErrors<keyof MultiPlacementForm> = {};
   if (!form.student_ids.length) errors.student_ids = t('Choose at least one student.');
-  if (!form.academic_supervisor_id.trim()) errors.academic_supervisor_id = t('Choose the academic supervisor.');
+  if (form.student_ids.some((id) => !form.supervisor_by_student[id])) {
+    errors.supervisor_by_student = t('Choose an academic supervisor for each student group.');
+  }
   if (!form.company_name.trim()) errors.company_name = t('Enter the company name.');
   if (!form.company_city.trim()) errors.company_city = t('Enter the company city.');
   if (!isEmail(form.company_supervisor_email)) errors.company_supervisor_email = t("Enter the supervisor's email address.");
@@ -213,7 +237,7 @@ export function PlacementFormScreen() {
         const input: PlacementInput = {
           ...(user.schoolId ? { school_id: user.schoolId } : {}),
           student_id,
-          academic_supervisor_id: form.academic_supervisor_id,
+          academic_supervisor_id: form.supervisor_by_student[student_id]!,
           company_name: form.company_name.trim(),
           company_city: form.company_city.trim(),
           company_supervisor_email: form.company_supervisor_email.trim().toLowerCase(),
@@ -241,10 +265,19 @@ export function PlacementFormScreen() {
     <Page>
       {failure ? <ErrorBanner error={failure} /> : null}
       {notice ? <Notice>{notice}</Notice> : null}
-      <StudentGroupPicker selected={form.student_ids} onChange={(ids) => setForm((f) => ({ ...f, student_ids: ids }))} error={errors.student_ids as string | undefined} />
+      <StudentGroupPicker
+        selected={form.student_ids}
+        onChange={(ids) => setForm((f) => ({ ...f, student_ids: ids }))}
+        supervisorByStudent={form.supervisor_by_student}
+        onAssignSupervisor={(ids, supervisorId) => setForm((f) => {
+          const supervisor_by_student = { ...f.supervisor_by_student };
+          ids.forEach((id) => { supervisor_by_student[id] = supervisorId; });
+          return { ...f, supervisor_by_student };
+        })}
+        error={errors.student_ids as string | undefined}
+        assignmentError={errors.supervisor_by_student as string | undefined}
+      />
       <Card>
-        <SupervisorPicker label={t('Academic supervisor')} value={form.academic_supervisor_id}
-          onChange={(id) => setForm((f) => ({ ...f, academic_supervisor_id: id }))} error={errors.academic_supervisor_id as string | undefined} />
         <TextField label={t('Company')} value={form.company_name} onChangeText={set('company_name')}
           error={errors.company_name as string | undefined} autoCapitalize="words" />
         <TextField label={t('City')} value={form.company_city} onChangeText={set('company_city')}

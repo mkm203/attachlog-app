@@ -55,7 +55,7 @@ function PlacementBody({ data }: { data: Loaded }) {
     <>
       <Card>
         <Row gap={12}>
-          <Avatar name={placement.student_name} size={52} />
+          <Avatar name={placement.student_name} uri={placement.student_avatar} size={52} />
           <View style={{ flex: 1 }}>
             <Title>{placement.student_name}</Title>
             <Body muted>{placement.company_name} · {placement.company_city}</Body>
@@ -68,9 +68,11 @@ function PlacementBody({ data }: { data: Loaded }) {
         </Row>
         <View style={{ height: 1, backgroundColor: colors.border }} />
         <Fact label={t('Dates')} value={`${formatRange(placement.start_date, placement.end_date)} · ${t('{n} weeks', { n: placement.total_weeks })}`} />
-        <Fact label={t('Academic supervisor')} value={placement.academic_supervisor_name} />
-        <Fact label={t('Company supervisor')}
-          value={placement.company_supervisor_name ?? `${placement.company_supervisor_email} ${t('(has not joined yet)')}`} />
+        <PersonFact label={t('Academic supervisor')} name={placement.academic_supervisor_name}
+          avatar={placement.academic_supervisor_avatar} />
+        <PersonFact label={t('Company supervisor')}
+          name={placement.company_supervisor_name ?? `${placement.company_supervisor_email} ${t('(has not joined yet)')}`}
+          avatar={placement.company_supervisor_avatar} />
       </Card>
 
       <Card>
@@ -171,6 +173,15 @@ function Fact({ label, value }: { label: string; value: string }) {
     <View style={{ gap: 2 }}>
       <Text style={{ fontSize: 13, fontWeight: '700', color: colors.muted }}>{label}</Text>
       <Body>{value}</Body>
+    </View>
+  );
+}
+
+function PersonFact({ label, name, avatar }: { label: string; name: string; avatar: string | null }) {
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.muted }}>{label}</Text>
+      <Row gap={8}><Avatar name={name} uri={avatar} size={34} /><Body>{name}</Body></Row>
     </View>
   );
 }

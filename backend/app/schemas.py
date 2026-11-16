@@ -57,13 +57,16 @@ class PlacementOut(BaseModel):
     company_id: str
     student_id: str
     student_name: str
+    student_avatar: str | None = None
     company_name: str
     company_city: str
     company_supervisor_id: str | None = None
     company_supervisor_name: str | None = None
+    company_supervisor_avatar: str | None = None
     company_supervisor_email: str
     academic_supervisor_id: str
     academic_supervisor_name: str
+    academic_supervisor_avatar: str | None = None
     start_date: date
     end_date: date
     total_weeks: int
@@ -251,6 +254,15 @@ class ResetRequest(BaseModel):
     email: Email
     code: str = Field(min_length=4, max_length=12)
     new_password: Password
+
+
+class EmailChangeRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=100)
+    new_email: Email
+
+
+class EmailChangeConfirm(BaseModel):
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
 
 
 class MembershipOut(BaseModel):

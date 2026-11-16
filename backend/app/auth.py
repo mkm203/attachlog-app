@@ -13,10 +13,11 @@ from app import mailer, ratelimit
 from app.access import memberships
 from app.database import get_db
 from app.errors import ApiError
-from app.models import Company, PasswordReset, School, User, now
+from app.models import Company, EmailChange, PasswordReset, Placement, School, User, as_utc, now
 from app.people import redeem, user_by_email
-from app.schemas import (ChangePassword, ErrorResponse, ForgotRequest, LoginRequest, MeOut, MembershipOut,
-                         ProfileUpdate, RedeemRequest, RegisterRequest, ResetRequest, TokenResponse)
+from app.schemas import (ChangePassword, EmailChangeConfirm, EmailChangeRequest, ErrorResponse, ForgotRequest,
+                         LoginRequest, MeOut, MembershipOut, ProfileUpdate, RedeemRequest, RegisterRequest,
+                         ResetRequest, TokenResponse)
 from app.security import current_user, hash_password, make_token, verify_password
 
 router = APIRouter(prefix="/v1", tags=["accounts"])
@@ -25,6 +26,7 @@ Me = Annotated[User, Depends(current_user)]
 E = {c: {"model": ErrorResponse} for c in (401, 403, 409, 422, 429)}
 RESET_MINUTES = 30
 MAX_RESET_ATTEMPTS = 5
+EMAIL_CHANGE_MINUTES = 10
 
 
 def client_ip(request: Request) -> str:
@@ -127,6 +129,69 @@ def update_profile(data: ProfileUpdate, db: DB, user: Me):
     user.bio = (data.bio or '').strip() or None
     user.avatar = data.avatar or None
     db.commit()
+    return me_out(db, user)
+
+
+@router.post("/me/email-change", status_code=202, responses={k: E[k] for k in (401, 403, 409, 422, 429)})
+def request_email_change(data: EmailChangeRequest, db: DB, user: Me):
+    """Send a one-time verification code to the new address after confirming the current password."""
+    if not verify_password(data.current_password, user.password_hash):
+        raise ApiError(403, "wrong_password", "The current password is wrong")
+    if data.new_email == user.email:
+        raise ApiError(422, "email_unchanged", "This is already your email address")
+    if user_by_email(db, data.new_email) is not None:
+        raise ApiError(409, "email_taken", "This email already has an account")
+    ratelimit.email_change_requests.guard(user.id)
+    ratelimit.email_change_requests.hit(user.id)
+    if not mailer.enabled():
+        raise ApiError(503, "email_delivery_unavailable", "Email delivery is not configured")
+
+    code = f"{secrets.randbelow(10**6):06d}"
+    if not mailer.send(data.new_email, "Verify your new AttachLog email",
+                       f"Your verification code is {code}. It expires in {EMAIL_CHANGE_MINUTES} minutes."):
+        raise ApiError(503, "email_delivery_unavailable", "The verification email could not be sent")
+
+    change = db.scalar(select(EmailChange).where(EmailChange.user_id == user.id))
+    if change is None:
+        change = EmailChange(user_id=user.id, new_email=data.new_email, code_hash=_hash_code(code),
+                             expires_at=now() + timedelta(minutes=EMAIL_CHANGE_MINUTES))
+        db.add(change)
+    else:
+        change.new_email = data.new_email
+        change.code_hash = _hash_code(code)
+        change.expires_at = now() + timedelta(minutes=EMAIL_CHANGE_MINUTES)
+        change.attempts = 0
+        change.used_at = None
+    db.commit()
+    return {"status": "verification_sent"}
+
+
+@router.post("/me/email-change/confirm", response_model=MeOut,
+             responses={k: E[k] for k in (401, 409, 422)})
+def confirm_email_change(data: EmailChangeConfirm, db: DB, user: Me):
+    change = db.scalar(select(EmailChange).where(EmailChange.user_id == user.id))
+    if (change is None or change.used_at is not None or as_utc(change.expires_at) <= now()
+            or change.attempts >= MAX_RESET_ATTEMPTS):
+        raise ApiError(422, "invalid_code", "This code is wrong or has expired")
+    if not secrets.compare_digest(change.code_hash, _hash_code(data.code)):
+        change.attempts += 1
+        db.commit()
+        raise ApiError(422, "invalid_code", "This code is wrong or has expired")
+    if user_by_email(db, change.new_email) is not None:
+        change.used_at = now()
+        db.commit()
+        raise ApiError(409, "email_taken", "This email already has an account")
+
+    user.email = change.new_email
+    user.email_verified = True
+    change.used_at = now()
+    db.query(Placement).filter(Placement.company_supervisor_id == user.id).update(
+        {Placement.company_supervisor_email: user.email}, synchronize_session=False)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ApiError(409, "email_taken", "This email already has an account")
     return me_out(db, user)
 
 

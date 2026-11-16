@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 import { friendlyMessage } from '../api/errors';
 import { t } from '../i18n';
+import { isEmail } from '../lib/validation';
 import { roleLabel } from '../lib/format';
 import type { ProfilePerson } from '../nav/Navigator';
 import { useNav } from '../nav/Navigator';
@@ -62,6 +65,10 @@ function MyProfile() {
   const [teaching, setTeaching] = useState(user.teaching_field ?? '');
   const [bio, setBio] = useState(user.bio ?? '');
   const [avatar, setAvatar] = useState<string | null>(user.avatar ?? null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [emailCode, setEmailCode] = useState('');
+  const [emailChangePending, setEmailChangePending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -91,6 +98,79 @@ function MyProfile() {
     setBusy(false);
   };
 
+  const choosePhoto = async () => {
+    setMsg(null);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.45,
+      });
+      if (result.canceled) return;
+      const photo = result.assets[0];
+      if (!photo) {
+        setMsg({ ok: false, text: t('Could not read the selected photo.') });
+        return;
+      }
+      const resized = await ImageManipulator.manipulateAsync(
+        photo.uri,
+        [{ resize: { width: 256 } }],
+        { compress: 0.65, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      if (!resized.base64) {
+        setMsg({ ok: false, text: t('Could not read the selected photo.') });
+        return;
+      }
+      const dataUri = `data:image/jpeg;base64,${resized.base64}`;
+      if (dataUri.length > 500000) {
+        setMsg({ ok: false, text: t('That photo is too large. Choose a smaller image.') });
+        return;
+      }
+      setAvatar(dataUri);
+    } catch (e) {
+      setMsg({ ok: false, text: friendlyMessage(e) });
+    }
+  };
+
+  const sendEmailCode = async () => {
+    setMsg(null);
+    if (!currentPassword) {
+      setMsg({ ok: false, text: t('Enter your current password to change your email.') });
+      return;
+    }
+    if (!isEmail(newEmail)) {
+      setMsg({ ok: false, text: t('Enter a valid email address.') });
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.requestEmailChange(currentPassword, newEmail.trim());
+      setEmailChangePending(true);
+      setMsg({ ok: true, text: t('A verification code was sent to your new email address.') });
+    } catch (e) {
+      setMsg({ ok: false, text: friendlyMessage(e) });
+    }
+    setBusy(false);
+  };
+
+  const confirmEmail = async () => {
+    setMsg(null);
+    setBusy(true);
+    try {
+      const me = await api.confirmEmailChange(emailCode.trim());
+      updateMe(me);
+      setEmailChangePending(false);
+      setCurrentPassword('');
+      setNewEmail('');
+      setEmailCode('');
+      setMsg({ ok: true, text: t('Email address updated.') });
+    } catch (e) {
+      setMsg({ ok: false, text: friendlyMessage(e) });
+    }
+    setBusy(false);
+  };
+
   return (
     <Page>
       <Card>
@@ -98,7 +178,7 @@ function MyProfile() {
           <Avatar name={name || user.name} uri={avatar} size={96} />
           <Title>{t('Your profile')}</Title>
           <Body muted>{user.email}</Body>
-          <Body muted>{t('Your login email cannot be changed here. Use Contact for a phone number.')}</Body>
+          <Body muted>{t('Change your login email below after verifying the new address.')}</Body>
         </View>
       </Card>
 
@@ -120,10 +200,36 @@ function MyProfile() {
         <TextField label={t('About')} value={bio} onChangeText={setBio} multiline maxLength={2000} autoCapitalize="sentences"
           hint={isCompany ? t('Company supervisors can share role or department details here.') : undefined} />
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+          <Button title={t('Choose photo')} variant="ghost" onPress={choosePhoto} />
           <Button title={avatar ? t('Remove photo') : t('Use initials')} variant="ghost" onPress={() => setAvatar(null)} />
         </View>
-        <Body muted>{t('Profile pictures show your initials by default. Photo upload from device can be added in a future update.')}</Body>
+        <Body muted>{t('Choose a photo or use your initials. Photos are cropped to a square.')}</Body>
         <Button title={t('Save profile')} onPress={save} loading={busy} />
+      </Card>
+
+      <SectionTitle>{t('Login email')}</SectionTitle>
+      <Card>
+        {!emailChangePending ? (
+          <>
+            <TextField label={t('Current password')} value={currentPassword} onChangeText={setCurrentPassword}
+              secureTextEntry autoCapitalize="none" />
+            <TextField label={t('New email')} value={newEmail} onChangeText={setNewEmail}
+              keyboardType="email-address" autoCapitalize="none" />
+            <Button title={t('Send verification code')} onPress={sendEmailCode} loading={busy} />
+          </>
+        ) : (
+          <>
+            <TextField label={t('Verification code')} value={emailCode} onChangeText={setEmailCode}
+              keyboardType="number-pad" maxLength={6} />
+            <Button title={t('Verify and change email')} onPress={confirmEmail} loading={busy} />
+            <Button title={t('Cancel email change')} variant="ghost" onPress={() => {
+              setEmailChangePending(false);
+              setCurrentPassword('');
+              setNewEmail('');
+              setEmailCode('');
+            }} />
+          </>
+        )}
       </Card>
     </Page>
   );

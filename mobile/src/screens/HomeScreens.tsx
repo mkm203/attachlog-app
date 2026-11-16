@@ -27,7 +27,7 @@ function PlacementCard({ placement, children }: { placement: Placement; children
       label={`${placement.student_name}, ${placement.company_name}`}
     >
       <Row gap={12}>
-        <Avatar name={placement.student_name} size={48} color={tone[0]} ink={tone[1]} />
+        <Avatar name={placement.student_name} uri={placement.student_avatar} size={48} color={tone[0]} ink={tone[1]} />
         <View style={{ flex: 1 }}>
           <Body bold>{placement.student_name}</Body>
           <Row gap={6}><Icon name="business-outline" size={14} color={colors.muted} /><Body muted>{placement.company_name} · {placement.company_city}</Body></Row>
@@ -104,7 +104,7 @@ function QueueCard({ entry, placement }: { entry: Entry; placement: Placement })
   return (
     <Card onPress={() => nav.push({ name: 'entry', id: entry.id })} label={`${placement.student_name}, ${t('Week {n}', { n: entry.week })}`}>
       <Row gap={12}>
-        <Avatar name={placement.student_name} />
+        <Avatar name={placement.student_name} uri={placement.student_avatar} />
         <View style={{ flex: 1 }}>
           <Body bold>{placement.student_name} · {t('Week {n}', { n: entry.week })}</Body>
           <Body muted>{entry.hours} h · {placement.company_name}</Body>

@@ -157,6 +157,36 @@ def test_change_password(client):
     assert login(client, "stu-1@example.com").status_code == 401
 
 
+def test_email_change_requires_a_password_and_verification_code(client, monkeypatch):
+    sent = []
+    monkeypatch.setattr("app.auth.mailer.enabled", lambda: True)
+    monkeypatch.setattr("app.auth.mailer.send", lambda to, subject, text: sent.append((to, text)) or True)
+    headers = auth("stu-1")
+
+    wrong = client.post("/v1/me/email-change",
+                        json={"current_password": "wrong", "new_email": "new@example.com"}, headers=headers)
+    assert wrong.status_code == 403 and wrong.json()["error"]["code"] == "wrong_password"
+
+    requested = client.post("/v1/me/email-change",
+                            json={"current_password": PASSWORD, "new_email": "New@Example.com"}, headers=headers)
+    assert requested.status_code == 202 and requested.json()["status"] == "verification_sent"
+    assert sent[0][0] == "new@example.com"
+    code = sent[0][1].split("code is ", 1)[1].split(".", 1)[0]
+
+    changed = client.post("/v1/me/email-change/confirm", json={"code": code}, headers=headers)
+    assert changed.status_code == 200
+    assert changed.json()["email"] == "new@example.com" and changed.json()["email_verified"] is True
+    assert login(client, "new@example.com").status_code == 200
+    assert login(client, "stu-1@example.com").status_code == 401
+    assert client.post("/v1/me/email-change/confirm", json={"code": code}, headers=headers).status_code == 422
+
+
+def test_email_change_refuses_an_email_already_in_use(client):
+    response = client.post("/v1/me/email-change",
+                           json={"current_password": PASSWORD, "new_email": "stu-2@example.com"}, headers=STUDENT)
+    assert response.status_code == 409 and response.json()["error"]["code"] == "email_taken"
+
+
 def test_forgot_password_never_reveals_whether_the_account_exists(client):
     a = client.post("/v1/auth/forgot", json={"email": "stu-1@example.com"})
     b = client.post("/v1/auth/forgot", json={"email": "nobody@example.com"})

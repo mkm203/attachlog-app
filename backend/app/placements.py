@@ -30,6 +30,30 @@ def find(db: Session, placement_id: str) -> Placement:
     return placement
 
 
+def placement_outputs(db: Session, placements: list[Placement]) -> list[PlacementOut]:
+    user_ids = {p.student_id for p in placements} | {p.academic_supervisor_id for p in placements}
+    user_ids.update(p.company_supervisor_id for p in placements if p.company_supervisor_id)
+    people = {u.id: u for u in db.scalars(select(User).where(User.id.in_(user_ids))).all()} if user_ids else {}
+    return [
+        PlacementOut.model_validate(p).model_copy(update={
+            "student_name": people[p.student_id].name if p.student_id in people else p.student_name,
+            "student_avatar": people[p.student_id].avatar if p.student_id in people else None,
+            "academic_supervisor_name": people[p.academic_supervisor_id].name
+            if p.academic_supervisor_id in people else p.academic_supervisor_name,
+            "academic_supervisor_avatar": people[p.academic_supervisor_id].avatar if p.academic_supervisor_id in people else None,
+            "company_supervisor_name": people[p.company_supervisor_id].name
+            if p.company_supervisor_id in people else p.company_supervisor_name,
+            "company_supervisor_avatar": people[p.company_supervisor_id].avatar
+            if p.company_supervisor_id in people else None,
+        })
+        for p in placements
+    ]
+
+
+def placement_output(db: Session, placement: Placement) -> PlacementOut:
+    return placement_outputs(db, [placement])[0]
+
+
 def member_of_school(db: Session, user_id: str, school_id: str, role: str, code: str, label: str) -> User:
     user = db.get(User, user_id)
     member = db.scalar(select(Membership.id).where(
@@ -75,7 +99,7 @@ def create_placement(data: PlacementCreate, db: DB, user: Anyone):
     db.flush()
     set_company_supervisor(db, placement, data.company_supervisor_email, user.id)
     db.commit()
-    return placement
+    return placement_output(db, placement)
 
 
 @router.get("", response_model=PlacementPage, responses={401: ERR[401], 422: ERR[422]})
@@ -97,14 +121,14 @@ def list_placements(
         query = query.where(Placement.school_id == school_id)
     total = db.scalar(select(func.count()).select_from(query.subquery()))
     rows = db.scalars(query.order_by(Placement.start_date, Placement.id).offset((page - 1) * page_size).limit(page_size)).all()
-    return {"items": rows, "page": page, "page_size": page_size, "total": total}
+    return {"items": placement_outputs(db, rows), "page": page, "page_size": page_size, "total": total}
 
 
 @router.get("/{placement_id}", response_model=PlacementOut, responses={k: ERR[k] for k in (401, 403, 404)})
 def get_placement(placement_id: str, db: DB, user: Anyone):
     placement = find(db, placement_id)
     require_view(db, user, placement)
-    return placement
+    return placement_output(db, placement)
 
 
 @router.put("/{placement_id}", response_model=PlacementOut,
@@ -121,7 +145,7 @@ def update_placement(placement_id: str, data: PlacementUpdate, db: DB, user: Any
     set_company_supervisor(db, placement, data.company_supervisor_email, user.id)
     audit.record(db, actor_id=user.id, action="supervisors_changed", placement_id=placement.id, school_id=placement.school_id)
     db.commit()
-    return placement
+    return placement_output(db, placement)
 
 
 @router.post("/{placement_id}/close", response_model=PlacementOut,
@@ -138,4 +162,4 @@ def close_placement(placement_id: str, data: FinalEvaluation, db: DB, user: Anyo
     audit.record(db, actor_id=user.id, action="placement_closed", placement_id=placement.id, school_id=placement.school_id,
                  detail=f"score={data.score}")
     db.commit()
-    return placement
+    return placement_output(db, placement)

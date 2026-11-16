@@ -82,6 +82,12 @@ export async function startStub(options: StubOptions = {}): Promise<Stub> {
           [{ loc: ['body', 'student_id'], msg: 'Field required', type: 'missing' }]));
       }
       if (url.pathname === '/v1/me/redeem') return send(200, ME);
+      if (url.pathname === '/v1/me/email-change' && req.method === 'POST') {
+        return send(202, { status: 'verification_sent' });
+      }
+      if (url.pathname === '/v1/me/email-change/confirm' && req.method === 'POST') {
+        return send(200, { ...ME, email: 'new@example.com', email_verified: true });
+      }
       if (url.pathname === '/v1/schools/s-1/members') {
         return send(200, [{ user_id: 'stu-1', name: 'Clarisse Ngo', email: 'clarisse@example.com', role: 'student' }]);
       }

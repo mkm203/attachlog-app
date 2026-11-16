@@ -68,6 +68,15 @@ describe('accounts', () => {
     assert.deepEqual(stub.requests.at(-1)!.body, { email: 'teacher@school.example', role: 'academic_supervisor' });
   });
 
+  test('changing an email sends a reauthentication request and confirms its code', async () => {
+    const client = clientFor(stub.url, { token: 'tok-stu-1' });
+    assert.equal((await client.requestEmailChange('current-pass', 'new@example.com')).status, 'verification_sent');
+    assert.deepEqual(stub.requests.at(-1)!.body, { current_password: 'current-pass', new_email: 'new@example.com' });
+    const me = await client.confirmEmailChange('123456');
+    assert.equal(me.email, 'new@example.com');
+    assert.deepEqual(stub.requests.at(-1)!.body, { code: '123456' });
+  });
+
   test('listing placements can be limited to one school', async () => {
     await clientFor(stub.url, { token: 'tok-stu-1' }).listPlacements({ schoolId: 's-1' });
     assert.match(stub.requests.at(-1)!.path, /school_id=s-1/);
