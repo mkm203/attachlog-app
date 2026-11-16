@@ -161,35 +161,134 @@ function ProgressLine({ progress }: { progress: Progress }) {
 
 type Filter = 'all' | 'open' | 'closed';
 
+interface CoordinatorSignal {
+  title: string;
+  detail: string;
+  icon: 'people' | 'time-outline' | 'document-text-outline' | 'calendar-outline';
+  placementId?: string;
+  entryId?: string;
+  userId?: string;
+}
+
 export function CoordinatorHome() {
   const { api } = useSession();
   const user = useUser();
   const nav = useNav();
   const [filter, setFilter] = useState<Filter>('all');
-  const state = useAsync(
-    () => api.allPlacements({ ...(filter === 'all' ? {} : { status: filter }), ...(user.schoolId ? { schoolId: user.schoolId } : {}) }),
-    [api, filter, user.schoolId, nav.revision],
-  );
+  const state = useAsync(async () => {
+    const [placements, entries, students] = await Promise.all([
+      api.allPlacements(user.schoolId ? { schoolId: user.schoolId } : {}),
+      api.allEntries(),
+      user.schoolId ? api.members(user.schoolId, 'student') : Promise.resolve([]),
+    ]);
+    const visibleIds = new Set(placements.map((placement) => placement.id));
+    const schoolEntries = entries.filter((entry) => visibleIds.has(entry.placement_id));
+    const open = placements.filter((placement) => placement.status === 'open');
+    const placedStudents = new Set(open.map((placement) => placement.student_id));
+    const today = new Date().toISOString().slice(0, 10);
+    const signals: CoordinatorSignal[] = [];
+
+    for (const student of students) {
+      if (!placedStudents.has(student.user_id)) {
+        signals.push({
+          title: t('Student awaiting placement'),
+          detail: [student.name, student.field_of_study, student.specialty].filter(Boolean).join(' · '),
+          icon: 'people',
+          userId: student.user_id,
+        });
+      }
+    }
+
+    const placementById = new Map(placements.map((placement) => [placement.id, placement]));
+    const overdue = schoolEntries.filter((entry) => entry.status === 'pending'
+      && Date.now() - new Date(entry.updated_at ?? entry.created_at ?? Date.now()).getTime() >= 3 * 24 * 60 * 60 * 1000);
+    for (const entry of overdue) {
+      const placement = placementById.get(entry.placement_id);
+      if (placement) signals.push({
+        title: t('Review overdue'),
+        detail: t('{student} · Week {n}', { student: placement.student_name, n: entry.week }),
+        icon: 'time-outline',
+        placementId: placement.id,
+        entryId: entry.id,
+      });
+    }
+
+    const entryWeeks = new Set(schoolEntries.map((entry) => `${entry.placement_id}:${entry.week}`));
+    for (const placement of open) {
+      const endingDays = (new Date(`${placement.end_date}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime())
+        / (24 * 60 * 60 * 1000);
+      if (endingDays >= 0 && endingDays <= 7) {
+        signals.push({
+          title: t('Placement ending soon'),
+          detail: t('{student} · {company}', { student: placement.student_name, company: placement.company_name }),
+          icon: 'calendar-outline',
+          placementId: placement.id,
+        });
+      }
+      let missingWeeks = 0;
+      for (let week = 1; week <= placement.total_weeks; week++) {
+        const dueDate = new Date(`${placement.start_date}T00:00:00Z`);
+        dueDate.setUTCDate(dueDate.getUTCDate() + (week - 1) * 7);
+        dueDate.setUTCDate(dueDate.getUTCDate() + 7);
+        if (dueDate.toISOString().slice(0, 10) <= today && !entryWeeks.has(`${placement.id}:${week}`)) missingWeeks++;
+      }
+      if (missingWeeks) {
+        signals.push({
+          title: t('Weekly entries missing'),
+          detail: t('{student} · {n} due', { student: placement.student_name, n: missingWeeks }),
+          icon: 'document-text-outline',
+          placementId: placement.id,
+        });
+      }
+    }
+    return { placements, signals, overdueCount: overdue.length };
+  }, [api, user.schoolId, nav.revision]);
 
   return (
     <AsyncPage state={state}>
-      {(placements) => (
+      {({ placements, signals, overdueCount }) => {
+        const shownPlacements = placements.filter((placement) => filter === 'all' || placement.status === filter);
+        return (
         <>
           <Stats items={[
             { label: t('Placements'), value: placements.length },
             { label: t('Open'), value: placements.filter((p) => p.status === 'open').length },
             { label: t('Closed'), value: placements.filter((p) => p.status === 'closed').length },
           ]} />
+          <Stats items={[
+            { label: t('Students awaiting placement'), value: signals.filter((signal) => signal.userId).length, tone: 'accent' },
+            { label: t('Overdue reviews'), value: overdueCount, tone: 'sun' },
+          ]} />
+          <SectionTitle>{t('Needs attention ({n})', { n: signals.length })}</SectionTitle>
+          {signals.length === 0 ? <Empty icon="checkmark-done-outline" title={t('Nothing needs attention')} /> : null}
+          {signals.slice(0, 8).map((signal, index) => (
+            <Card key={`${signal.title}:${signal.entryId ?? signal.placementId ?? signal.userId}:${index}`}
+              onPress={() => {
+                if (signal.entryId) nav.push({ name: 'entry', id: signal.entryId });
+                else if (signal.placementId) nav.push({ name: 'placement', id: signal.placementId });
+                else if (signal.userId) nav.push({ name: 'profile', userId: signal.userId });
+              }}>
+              <Row gap={10}>
+                <Icon name={signal.icon} size={19} color={colors.accent} />
+                <View style={{ flex: 1 }}>
+                  <Body bold>{signal.title}</Body>
+                  <Body muted>{signal.detail}</Body>
+                </View>
+                <Icon name="chevron-forward" size={18} color={colors.muted} />
+              </Row>
+            </Card>
+          ))}
           <Button title={t('New placement')} onPress={() => nav.push({ name: 'placementForm' })} />
           <Row>
             {(['all', 'open', 'closed'] as const).map((f) => (
               <Chip key={f} label={f === 'all' ? t('All') : f === 'open' ? t('Open') : t('Closed')} selected={filter === f} onPress={() => setFilter(f)} />
             ))}
           </Row>
-          {placements.length === 0 ? <Empty title={t('No placements')} hint={t('Create the first one with “New placement”.')} /> : null}
-          {placements.map((p) => <PlacementCard key={p.id} placement={p} />)}
+          {shownPlacements.length === 0 ? <Empty title={t('No placements')} hint={t('Create the first one with “New placement”.')} /> : null}
+          {shownPlacements.map((p) => <PlacementCard key={p.id} placement={p} />)}
         </>
-      )}
+      );
+      }}
     </AsyncPage>
   );
 }

@@ -1,6 +1,9 @@
 import React from 'react';
+import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Role } from './src/api/types';
@@ -15,16 +18,28 @@ import {
   AcademicSupervisorHome, CompanySupervisorHome, CoordinatorHome, StudentHome,
 } from './src/screens/HomeScreens';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { PlacementScreen } from './src/screens/PlacementScreen';
 import { SchoolScreen } from './src/screens/SchoolScreen';
 import { CloseFormScreen, PlacementFormScreen, SupervisorsFormScreen } from './src/screens/PlacementForms';
 import { LanguageProvider } from './src/state/language';
 import { ThemeProvider, useTheme } from './src/state/theme';
 import { SessionProvider, useSession, useUser } from './src/state/session';
+import { useLanguage } from './src/state/language';
+import { useAsync } from './src/state/useAsync';
 import { Avatar, Body, Empty, HeroBand, Page } from './src/ui/kit';
 import { Icon } from './src/ui/Icon';
 import type { IconName } from './src/ui/Icon';
 import { colors, lift } from './src/ui/theme';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 function homeTitle(role: Role): string {
   switch (role) {
@@ -38,6 +53,7 @@ function homeTitle(role: Role): string {
 function titleFor(route: Route, role: Role | null): string {
   switch (route.name) {
     case 'home': return role ? homeTitle(role) : t('Welcome');
+    case 'notifications': return t('Notifications');
     case 'school': return t('My school');
     case 'account': return t('Account');
     case 'profile': return t('Profile');
@@ -72,6 +88,7 @@ function NoRole() {
 function Screen({ route, role }: { route: Route; role: Role | null }) {
   switch (route.name) {
     case 'home': return role ? <Home role={role} /> : <NoRole />;
+    case 'notifications': return <NotificationsScreen />;
     case 'school': return <SchoolScreen />;
     case 'account': return <AccountScreen />;
     case 'profile': return <ProfileScreen userId={route.userId} />;
@@ -85,9 +102,38 @@ function Screen({ route, role }: { route: Route; role: Role | null }) {
   }
 }
 
-function Shell() {
-  const user = useUser();
+function NotificationBell() {
+  const { api } = useSession();
   const nav = useNav();
+  const state = useAsync(() => api.notifications(), [api, nav.tab, nav.revision]);
+  const unread = state.data?.unread_count ?? 0;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={unread ? t('Notifications, {n} unread', { n: unread }) : t('Notifications')}
+      onPress={() => nav.push({ name: 'notifications' })}
+      style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' }}
+    >
+      <Icon name="notifications-outline" size={23} color="#FFFFFF" />
+      {unread > 0 ? (
+        <View style={{ position: 'absolute', top: -1, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800' }}>{unread > 99 ? '99+' : unread}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+function Shell() {
+  const { api } = useSession();
+  const user = useUser();
+  const { language } = useLanguage();
+  const nav = useNav();
+  const navRef = useRef(nav);
+  const apiRef = useRef(api);
+  const handledResponses = useRef(new Set<string>());
+  navRef.current = nav;
+  apiRef.current = api;
   const insets = useSafeAreaInsets();
   const tabs = user.role === 'coordinator' ? (['home', 'school', 'account'] as const) : (['home', 'account'] as const);
   const iconFor = (tab: 'home' | 'school' | 'account', active: boolean): IconName =>
@@ -97,6 +143,53 @@ function Shell() {
   const first = user.name.trim().split(/\s+/)[0] ?? '';
   const root = !nav.canGoBack;
   const heading = root && nav.tab === 'home' && nav.route.name === 'home' && first ? t('Hello, {name}', { name: first }) : titleFor(nav.route, user.role);
+
+  useEffect(() => {
+    let active = true;
+    const register = async () => {
+      if (Platform.OS === 'web') return;
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: t('Notifications'),
+          importance: Notifications.AndroidImportance.HIGH,
+        });
+      }
+      let permission = await Notifications.getPermissionsAsync();
+      if (!permission.granted && permission.canAskAgain) permission = await Notifications.requestPermissionsAsync();
+      if (!permission.granted) return;
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      if (!projectId) throw new Error('Expo project ID is missing from app configuration.');
+      const token = await Notifications.getExpoPushTokenAsync({ projectId });
+      if (active) await api.registerPushToken(token.data, language);
+    };
+    void register().catch((error: unknown) => console.warn('Push notification setup failed', error));
+    return () => { active = false; };
+  }, [api, language, user.sub]);
+
+  useEffect(() => {
+    const openResponse = (response: Notifications.NotificationResponse) => {
+      const key = response.notification.request.identifier;
+      if (handledResponses.current.has(key)) return;
+      handledResponses.current.add(key);
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      if (typeof data.notificationId === 'string') {
+        void apiRef.current.markNotificationRead(data.notificationId)
+          .then(() => navRef.current.refresh())
+          .catch((error: unknown) => console.warn('Could not mark push notification as read', error));
+      }
+      if (typeof data.entryId === 'string') navRef.current.push({ name: 'entry', id: data.entryId });
+      else if (typeof data.placementId === 'string') navRef.current.push({ name: 'placement', id: data.placementId });
+      else navRef.current.push({ name: 'notifications' });
+    };
+    const subscription = Notifications.addNotificationResponseReceivedListener(openResponse);
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        openResponse(response);
+        void Notifications.clearLastNotificationResponseAsync();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.hero }}>
@@ -116,7 +209,12 @@ function Shell() {
               <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.78)', fontSize: 15, marginTop: 2 }}>{user.contextLabel}</Text>
             ) : null}
           </View>
-          {root ? <Avatar name={user.name} uri={user.avatar} size={46} color="rgba(255,255,255,0.18)" ink="#FFFFFF" onPress={() => nav.push({ name: 'profile' })} /> : null}
+          {root ? (
+            <>
+              <NotificationBell />
+              <Avatar name={user.name} uri={user.avatar} size={46} color="rgba(255,255,255,0.18)" ink="#FFFFFF" onPress={() => nav.push({ name: 'profile' })} />
+            </>
+          ) : null}
         </View>
       </HeroBand>
 

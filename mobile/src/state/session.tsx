@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
 
 import { AttachLogClient, toSession } from '../api/client';
 import { DEFAULT_SERVER, SERVER_LOCKED, normalizeServer } from '../api/config';
@@ -37,6 +39,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [server, setServerState] = useState(DEFAULT_SERVER);
   const [notice, setNotice] = useState<string | null>(null);
+  const apiRef = useRef<AttachLogClient | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -50,6 +53,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback((message?: string) => {
+    const client = apiRef.current;
+    if (!message && client) {
+      void (async () => {
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        if (!projectId || !(await Notifications.getPermissionsAsync()).granted) return;
+        const token = await Notifications.getExpoPushTokenAsync({ projectId });
+        await client.unregisterPushToken(token.data);
+      })().catch((error: unknown) => console.warn('Could not disable the signed-out device push token', error));
+    }
     setSession(null);
     setNotice(message ?? null);
     void removeItem(SESSION_KEY);
@@ -67,6 +79,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }),
     [server, session?.token],
   );
+  apiRef.current = api;
 
   const begin = useCallback(async (result: LoginResult, target: string) => {
     const next = toSession(result);

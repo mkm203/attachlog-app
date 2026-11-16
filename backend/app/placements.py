@@ -11,6 +11,7 @@ from app.access import require_coordinator, require_view, visible_placements
 from app.database import get_db
 from app.errors import ApiError
 from app.models import AuditEvent, Company, Entry, Membership, Placement, Review, School, User
+from app.notifications import notify_users, send_push_notifications
 from app.people import find_or_create_company, grant_or_invite, user_by_email
 from app.schemas import (ErrorResponse, FinalEvaluation, PlacementCreate, PlacementOut, PlacementPage,
                          EntryOut, PlacementReportEntry, PlacementReportOut, PlacementReportReview,
@@ -99,7 +100,12 @@ def create_placement(data: PlacementCreate, db: DB, user: Anyone):
     db.add(placement)
     db.flush()
     set_company_supervisor(db, placement, data.company_supervisor_email, user.id)
+    recipients = {student.id, academic.id}
+    if placement.company_supervisor_id:
+        recipients.add(placement.company_supervisor_id)
+    notifications = notify_users(db, recipients, "placement_assigned", placement_id=placement.id)
     db.commit()
+    send_push_notifications(db, notifications)
     return placement_output(db, placement)
 
 
@@ -212,5 +218,10 @@ def close_placement(placement_id: str, data: FinalEvaluation, db: DB, user: Anyo
     placement.final_comment = data.comment
     audit.record(db, actor_id=user.id, action="placement_closed", placement_id=placement.id, school_id=placement.school_id,
                  detail=f"score={data.score}")
+    recipients = {placement.student_id, placement.academic_supervisor_id}
+    if placement.company_supervisor_id:
+        recipients.add(placement.company_supervisor_id)
+    notifications = notify_users(db, recipients, "placement_closed", placement_id=placement.id)
     db.commit()
+    send_push_notifications(db, notifications)
     return placement_output(db, placement)

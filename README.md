@@ -98,6 +98,8 @@ npx eas-cli build -p android --profile preview
 
 Set `EXPO_PUBLIC_API_URL` in `mobile/eas.json` to your real API address first. EAS gives a download link for the APK. For the Play Store use `--profile production` (an app bundle). The app icon and splash are in `mobile/assets` (`make_logo.py` redraws them with Pillow).
 
+**Notifications.** In-app alerts work in the app; operating-system push alerts require a native EAS build and notification permission. Push tokens are registered to the signed-in account and disabled on sign-out. Workflow events (new placements, entries, reviews, and student sign-ups) send push alerts through Expo. Deadline reminders are generated when the inbox is refreshed; this deployment does not include a scheduled background job, so reminders are not guaranteed while the app stays closed.
+
 ## Run everything locally
 
 ```powershell

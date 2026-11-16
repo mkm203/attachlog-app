@@ -13,7 +13,8 @@ from app import mailer, ratelimit
 from app.access import memberships
 from app.database import get_db
 from app.errors import ApiError
-from app.models import Company, EmailChange, PasswordReset, Placement, School, User, as_utc, now
+from app.models import Company, EmailChange, Membership, PasswordReset, Placement, School, User, as_utc, now
+from app.notifications import notify_users, send_push_notifications
 from app.people import redeem, user_by_email
 from app.schemas import (ChangePassword, EmailChangeConfirm, EmailChangeRequest, ErrorResponse, ForgotRequest,
                          LoginRequest, MeOut, MembershipOut, ProfileUpdate, RedeemRequest, RegisterRequest,
@@ -27,6 +28,22 @@ E = {c: {"model": ErrorResponse} for c in (401, 403, 409, 422, 429)}
 RESET_MINUTES = 30
 MAX_RESET_ATTEMPTS = 5
 EMAIL_CHANGE_MINUTES = 10
+
+
+def notify_new_students(db: Session, user: User, previous: set[tuple[str, str | None]]):
+    created = []
+    student_memberships = db.scalars(select(Membership).where(
+        Membership.user_id == user.id, Membership.role == "student"
+    )).all()
+    for membership in student_memberships:
+        if membership.school_id is None or ("student", membership.school_id) in previous:
+            continue
+        coordinators = db.scalars(select(Membership.user_id).where(
+            Membership.school_id == membership.school_id, Membership.role == "coordinator"
+        )).all()
+        created.extend(notify_users(db, coordinators, "student_joined",
+                                    dedupe_key=f"student-joined:{user.id}:{membership.school_id}"))
+    return created
 
 
 def client_ip(request: Request) -> str:
@@ -71,7 +88,9 @@ def register(data: RegisterRequest, db: DB, request: Request):
         db.rollback()
         ratelimit.code_attempts.hit(ip)
         raise
+    notifications = notify_new_students(db, user, set())
     db.commit()
+    send_push_notifications(db, notifications)
     return token_response(db, user)
 
 
@@ -101,13 +120,18 @@ def me(db: DB, user: Me):
 def redeem_code(data: RedeemRequest, db: DB, user: Me):
     """Add a role or a school to your account with a code (an invite, or a school's join code for students)."""
     ratelimit.code_attempts.guard(user.id)
+    previous = {(membership.role, membership.school_id) for membership in db.scalars(
+        select(Membership).where(Membership.user_id == user.id)
+    ).all()}
     try:
         redeem(db, user, data.code)
     except ApiError:
         db.rollback()
         ratelimit.code_attempts.hit(user.id)
         raise
+    notifications = notify_new_students(db, user, previous)
     db.commit()
+    send_push_notifications(db, notifications)
     return me_out(db, user)
 
 

@@ -19,6 +19,7 @@ export interface ProfilePerson {
 
 export type Route =
   | { name: 'home' }
+  | { name: 'notifications' }
   | { name: 'account' }
   | { name: 'school' }
   | { name: 'profile'; userId?: string; person?: ProfilePerson }

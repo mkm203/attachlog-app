@@ -11,7 +11,8 @@ from app import audit
 from app.database import get_db
 from app.errors import ApiError
 from app.access import require_view, visible_placements
-from app.models import Entry, Placement, Review
+from app.models import Entry, Membership, Placement, Review
+from app.notifications import notify_users, send_push_notifications
 from app.placements import find as find_placement
 from app.schemas import (AuditOut, EntryCreate, EntryOut, EntryPage, EntryUpdate, ErrorResponse, Progress, ReviewCreate,
                          ReviewOut)
@@ -51,11 +52,18 @@ def create_entry(placement_id: str, data: EntryCreate, db: DB, user: Anyone):
     db.flush()
     audit.record(db, actor_id=user.id, action="entry_submitted", placement_id=placement_id, school_id=placement.school_id,
                  detail=f"Week {data.week}")
+    recipients = set(db.scalars(select(Membership.user_id).where(
+        Membership.school_id == placement.school_id, Membership.role == "coordinator"
+    )).all())
+    if placement.company_supervisor_id:
+        recipients.add(placement.company_supervisor_id)
+    notifications = notify_users(db, recipients, "entry_submitted", placement_id=placement.id, entry_id=entry.id)
     try:
         db.commit()
     except IntegrityError:  # two requests at the same moment: the database constraint decides
         db.rollback()
         raise ApiError(409, "entry_exists", f"An entry already exists for week {data.week}")
+    send_push_notifications(db, notifications)
     return entry
 
 
@@ -123,7 +131,13 @@ def review_entry(entry_id: str, data: ReviewCreate, db: DB, user: Anyone):
     db.add(review)
     audit.record(db, actor_id=user.id, action=f"entry_{data.decision}", placement_id=placement.id, school_id=placement.school_id,
                  detail=f"Week {entry.week}")
+    notifications = notify_users(db, [entry.student_id], "entry_reviewed",
+                                  placement_id=placement.id, entry_id=entry.id)
+    if data.decision == "approved":
+        notifications.extend(notify_users(db, [placement.academic_supervisor_id], "academic_review_ready",
+                                          placement_id=placement.id, entry_id=entry.id))
     db.commit()
+    send_push_notifications(db, notifications)
     return review
 
 
@@ -146,7 +160,10 @@ def academic_feedback(entry_id: str, data: ReviewCreate, db: DB, user: Anyone):
     db.add(review)
     audit.record(db, actor_id=user.id, action="entry_academic_feedback", placement_id=placement.id, school_id=placement.school_id,
                  detail=f"Week {entry.week}")
+    notifications = notify_users(db, [entry.student_id], "academic_feedback",
+                                  placement_id=placement.id, entry_id=entry.id)
     db.commit()
+    send_push_notifications(db, notifications)
     return review
 
 

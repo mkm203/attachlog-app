@@ -2,7 +2,7 @@ import { DEFAULT_SERVER, normalizeServer } from './config';
 import { ApiError } from './errors';
 import type {
   Decision, Entry, Grant, LoginResult, Me, Member, Page, Placement, PlacementInput, PlacementReport, Progress, Review, Role,
-  SchoolDetail, Session,
+  NotificationPage, SchoolDetail, Session,
 } from './types';
 
 export interface ClientOptions {
@@ -151,6 +151,26 @@ export class AttachLogClient {
 
   me() {
     return this.rest<Me>('/v1/me');
+  }
+
+  notifications() {
+    return this.rest<NotificationPage>('/v1/notifications');
+  }
+
+  registerPushToken(token: string, language: 'en' | 'fr') {
+    return this.rest<null>('/v1/notifications/push-token', { method: 'POST', body: { token, language } });
+  }
+
+  unregisterPushToken(token: string) {
+    return this.rest<null>('/v1/notifications/push-token/remove', { method: 'POST', body: { token } });
+  }
+
+  markNotificationRead(id: string) {
+    return this.rest<null>(`/v1/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' });
+  }
+
+  markAllNotificationsRead() {
+    return this.rest<null>('/v1/notifications/read-all', { method: 'POST' });
   }
 
   /** Add a role or a school to the account with a code. */

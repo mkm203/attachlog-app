@@ -12,6 +12,7 @@ from app import config, migrate
 from app.database import SessionLocal
 from app.entries import router as entries_router
 from app.errors import register_handlers
+from app.notifications import router as notifications_router
 from app.placements import router as placements_router
 from app.schools import admin as admin_router, schools as schools_router
 
@@ -42,6 +43,7 @@ app.include_router(schools_router)
 app.include_router(admin_router)
 app.include_router(placements_router)
 app.include_router(entries_router)
+app.include_router(notifications_router)
 app.mount("/admin/static", StaticFiles(directory=STATIC), name="admin-static")
 
 

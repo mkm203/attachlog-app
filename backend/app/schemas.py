@@ -222,6 +222,30 @@ class AuditOut(BaseModel):
     created_at: datetime
 
 
+class PushTokenIn(BaseModel):
+    token: str = Field(min_length=20, max_length=512, pattern=r"^(Expo|Exponent)PushToken\[[^\]\s]+\]$")
+    language: Literal["en", "fr"] = "en"
+
+
+class NotificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    kind: str
+    title: str
+    body: str
+    placement_id: str | None = None
+    entry_id: str | None = None
+    created_at: datetime
+    read_at: datetime | None = None
+
+
+class NotificationPage(BaseModel):
+    items: list[NotificationOut]
+    total: int
+    unread_count: int
+
+
 class ErrorBody(BaseModel):
     code: str
     message: str

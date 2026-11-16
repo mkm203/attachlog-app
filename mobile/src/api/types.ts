@@ -118,6 +118,23 @@ export interface AuditEvent {
   created_at: string;
 }
 
+export interface AppNotification {
+  id: string;
+  kind: string;
+  title: string;
+  body: string;
+  placement_id: string | null;
+  entry_id: string | null;
+  created_at: string;
+  read_at: string | null;
+}
+
+export interface NotificationPage {
+  items: AppNotification[];
+  total: number;
+  unread_count: number;
+}
+
 export interface Membership {
   id: string;
   role: Role;

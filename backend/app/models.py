@@ -2,6 +2,7 @@
 
 people and places:  users, schools, companies, memberships, invites, password_resets
 the logbook:        placements, entries, reviews
+notifications:      notifications, push tokens
 
 A user has no role of their own. They get roles through memberships:
 coordinator, academic_supervisor and student belong to a school; company_supervisor belongs to a company.
@@ -123,6 +124,34 @@ class EmailChange(Base):
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class AppNotification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (UniqueConstraint("user_id", "dedupe_key", name="uq_notification_dedupe"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    title: Mapped[str] = mapped_column(String(160))
+    body: Mapped[str] = mapped_column(String(500))
+    placement_id: Mapped[str | None] = mapped_column(ForeignKey("placements.id"), nullable=True, index=True)
+    entry_id: Mapped[str | None] = mapped_column(ForeignKey("entries.id"), nullable=True, index=True)
+    dedupe_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PushToken(Base):
+    __tablename__ = "push_tokens"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    token: Mapped[str] = mapped_column(String(512), unique=True)
+    language: Mapped[str] = mapped_column(String(2), default="en")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
 class Placement(Base):
