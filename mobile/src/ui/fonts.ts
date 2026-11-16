@@ -1,2 +1,8 @@
-/** The phone's own system font (San Francisco on iOS, Roboto on Android): nothing to install. */
-export const fonts: { display: string | undefined; mono: string | undefined } = { display: undefined, mono: undefined };
+export const fonts = {
+  body: 'DMSans_400Regular',
+  medium: 'DMSans_500Medium',
+  semibold: 'DMSans_600SemiBold',
+  bold: 'DMSans_700Bold',
+  heavy: 'DMSans_800ExtraBold',
+  display: 'SpaceGrotesk_700Bold',
+};

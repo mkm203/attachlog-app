@@ -11,19 +11,19 @@ interface Palette {
 }
 
 const light: Palette = {
-  bg: '#F2F5FF', sheet: '#FFFFFF', card: '#FFFFFF', cardAlt: '#F6F7FB', text: '#0F172A', muted: '#6B7280', border: '#E6E8F0',
-  primary: '#4F46E5', primaryDark: '#3730A3', primarySoft: '#E8E7FF', hero: '#4F46E5', onPrimary: '#FFFFFF',
-  accent: '#F97316', accentSoft: '#FFE8D9', mint: '#10B981', mintSoft: '#DDF7EC', peri: '#06B6D4', periSoft: '#D9F6FB',
-  sun: '#F59E0B', sunSoft: '#FEF3C7', danger: '#EF4444', dangerBg: '#FEE2E2', ok: '#10B981', okBg: '#DDF7EC',
-  warn: '#B45309', warnBg: '#FEF3C7', track: '#E8EBF5', shadow: '#111827', heroDeco: 'rgba(255,255,255,0.10)',
+  bg: '#F3F6F1', sheet: '#FBFCF8', card: '#FFFFFF', cardAlt: '#F3F6F3', text: '#173438', muted: '#718487', border: '#DDE8E4',
+  primary: '#176A63', primaryDark: '#104B47', primarySoft: '#DDF2EC', hero: '#103C3D', onPrimary: '#FFFFFF',
+  accent: '#E77B5D', accentSoft: '#FCE9E1', mint: '#4E9D82', mintSoft: '#DFF1E7', peri: '#638FCE', periSoft: '#E7EFFB',
+  sun: '#D49A3A', sunSoft: '#F8EECF', danger: '#C9504B', dangerBg: '#FBE6E2', ok: '#328567', okBg: '#DFF1E7',
+  warn: '#A56A16', warnBg: '#F8EECF', track: '#E4ECE8', shadow: '#173438', heroDeco: 'rgba(220,255,236,0.10)',
 };
 
 const dark: Palette = {
-  bg: '#0B1020', sheet: '#12172A', card: '#171D33', cardAlt: '#1E2540', text: '#EAF0FF', muted: '#9AA4C7', border: '#262E4A',
-  primary: '#818CF8', primaryDark: '#312E81', primarySoft: '#22275A', hero: '#3730A3', onPrimary: '#FFFFFF',
-  accent: '#FB923C', accentSoft: '#3A2416', mint: '#34D399', mintSoft: '#123528', peri: '#22D3EE', periSoft: '#0F2E36',
-  sun: '#FBBF24', sunSoft: '#3A300F', danger: '#F87171', dangerBg: '#3B171A', ok: '#34D399', okBg: '#123528',
-  warn: '#FBBF24', warnBg: '#3A300F', track: '#242B45', shadow: '#000000', heroDeco: 'rgba(255,255,255,0.06)',
+  bg: '#0D191A', sheet: '#112224', card: '#182E30', cardAlt: '#20383A', text: '#EEF5EF', muted: '#A2B8B2', border: '#294346',
+  primary: '#76CEB7', primaryDark: '#1C5E53', primarySoft: '#193D37', hero: '#0B3232', onPrimary: '#102B2C',
+  accent: '#F09374', accentSoft: '#432B26', mint: '#72C4A0', mintSoft: '#1A3D32', peri: '#8EB3ED', periSoft: '#253650',
+  sun: '#F1BF65', sunSoft: '#43371F', danger: '#F28C83', dangerBg: '#492B2A', ok: '#72C4A0', okBg: '#1A3D32',
+  warn: '#F1BF65', warnBg: '#43371F', track: '#294044', shadow: '#000000', heroDeco: 'rgba(220,255,236,0.07)',
 };
 
 /** The live colours. `applyScheme` rewrites them, then the app redraws (see state/theme.tsx). */
@@ -43,7 +43,7 @@ export function applyScheme(scheme: Scheme): void {
 }
 
 export const space = { xs: 4, sm: 8, md: 16, lg: 24 };
-export const radius = 20;
+export const radius = 24;
 
 /** One soft shadow for floating things (iOS shadow* and Android elevation together). */
 export function lift(strength = 1) {

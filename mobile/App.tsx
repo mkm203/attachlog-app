@@ -1,10 +1,15 @@
 import React from 'react';
 import Constants from 'expo-constants';
+import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_800ExtraBold,
+} from '@expo-google-fonts/dm-sans';
+import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 
 import type { Role } from './src/api/types';
 import { t } from './src/i18n';
@@ -27,7 +32,8 @@ import { ThemeProvider, useTheme } from './src/state/theme';
 import { SessionProvider, useSession, useUser } from './src/state/session';
 import { useLanguage } from './src/state/language';
 import { useAsync } from './src/state/useAsync';
-import { Avatar, Body, Empty, HeroBand, Page } from './src/ui/kit';
+import { fonts } from './src/ui/fonts';
+import { Avatar, Body, Button, Empty, HeroBand, Page } from './src/ui/kit';
 import { Icon } from './src/ui/Icon';
 import type { IconName } from './src/ui/Icon';
 import { colors, lift } from './src/ui/theme';
@@ -76,11 +82,13 @@ function Home({ role }: { role: Role }) {
 }
 
 function NoRole() {
+  const nav = useNav();
   return (
     <Page>
       <Empty title={t('You have not joined anything yet')}
         hint={t("Open the Account tab and use “Join with a code”: students use their school's code, supervisors use the code from their invitation.")} />
       <Body muted>{t('Your coordinator or company can send you the code.')}</Body>
+      <Button title={t('Join with a code')} variant="ghost" onPress={() => nav.setTab('account')} />
     </Page>
   );
 }
@@ -117,7 +125,7 @@ function NotificationBell() {
       <Icon name="notifications-outline" size={23} color="#FFFFFF" />
       {unread > 0 ? (
         <View style={{ position: 'absolute', top: -1, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
-          <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800' }}>{unread > 99 ? '99+' : unread}</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800', fontFamily: fonts.bold }}>{unread > 99 ? '99+' : unread}</Text>
         </View>
       ) : null}
     </Pressable>
@@ -202,11 +210,11 @@ function Shell() {
             </Pressable>
           ) : null}
           <View style={{ flex: 1 }}>
-            <Text accessibilityRole="header" numberOfLines={1} style={{ fontSize: root ? 28 : 21, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 }}>
+            <Text accessibilityRole="header" numberOfLines={1} style={{ fontSize: root ? 28 : 21, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: fonts.display }}>
               {heading}
             </Text>
             {root && user.contextLabel ? (
-              <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.78)', fontSize: 15, marginTop: 2 }}>{user.contextLabel}</Text>
+              <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.78)', fontSize: 15, marginTop: 2, fontFamily: fonts.medium }}>{user.contextLabel}</Text>
             ) : null}
           </View>
           {root ? (
@@ -265,6 +273,26 @@ function Root() {
 }
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    DMSans_700Bold,
+    DMSans_800ExtraBold,
+    SpaceGrotesk_700Bold,
+  });
+  useEffect(() => {
+    if (fontError) console.warn('Custom fonts could not be loaded; using system fallbacks.', fontError);
+  }, [fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <ThemeProvider>

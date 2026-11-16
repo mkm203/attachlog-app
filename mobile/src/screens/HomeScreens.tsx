@@ -54,7 +54,9 @@ export function StudentHome() {
   if (state.data?.placement) return <PlacementScreen id={state.data.placement.id} />;
   return (
     <AsyncPage state={state}>
-      {() => <Empty title={t('No placement yet')} hint={t('Your coordinator creates your placement. Make sure you joined your school with its code, then pull down to check again.')} />}
+      {() => <Empty title={t('No placement yet')}
+        hint={t('Your coordinator creates your placement. Make sure you joined your school with its code, then pull down to check again.')}
+        actionTitle={t('Account')} onAction={() => nav.setTab('account')} />}
     </AsyncPage>
   );
 }
@@ -90,7 +92,8 @@ export function CompanySupervisorHome() {
             <QueueCard key={entry.id} entry={entry} placement={placement} />
           ))}
           <SectionTitle>{t('My interns')}</SectionTitle>
-          {mine.length === 0 ? <Empty title={t('No placements assigned to you')} /> : null}
+          {mine.length === 0 ? <Empty title={t('No placements assigned to you')}
+            hint={t('Your coordinator assigns placements. They will appear here when available.')} /> : null}
           {mine.map((p) => <PlacementCard key={p.id} placement={p} />)}
         </>
       )}
@@ -133,8 +136,13 @@ export function AcademicSupervisorHome() {
     <AsyncPage state={state}>
       {(rows) => (
         <>
+          <Stats items={[
+            { label: t('My interns'), value: rows.length, tone: 'accent' },
+            { label: t('Open'), value: rows.filter(({ placement }) => placement.status === 'open').length, tone: 'mint' },
+          ]} />
           <SectionTitle>{t('Interns you supervise ({n})', { n: rows.length })}</SectionTitle>
-          {rows.length === 0 ? <Empty title={t('No placements assigned to you')} /> : null}
+          {rows.length === 0 ? <Empty title={t('No placements assigned to you')}
+            hint={t('Your coordinator assigns placements. They will appear here when available.')} /> : null}
           {rows.map(({ placement, progress }) => (
             <PlacementCard key={placement.id} placement={placement}>
               <ProgressLine progress={progress} />
@@ -284,7 +292,10 @@ export function CoordinatorHome() {
               <Chip key={f} label={f === 'all' ? t('All') : f === 'open' ? t('Open') : t('Closed')} selected={filter === f} onPress={() => setFilter(f)} />
             ))}
           </Row>
-          {shownPlacements.length === 0 ? <Empty title={t('No placements')} hint={t('Create the first one with “New placement”.')} /> : null}
+          {shownPlacements.length === 0 ? (
+            <Empty title={t('No placements')}
+              hint={placements.length === 0 ? t('Create the first one with “New placement”.') : t('No placements match this filter.')} />
+          ) : null}
           {shownPlacements.map((p) => <PlacementCard key={p.id} placement={p} />)}
         </>
       );

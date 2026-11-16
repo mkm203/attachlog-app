@@ -11,6 +11,7 @@ import { friendlyMessage } from '../api/errors';
 import type { AsyncState } from '../state/useAsync';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
+import { fonts } from './fonts';
 import { colors, lift, radius, space } from './theme';
 
 // The styles are built from the live colours; `useStyles()` below rebuilds them when the theme changes
@@ -91,6 +92,7 @@ export function Page({ children, onRefresh, refreshing, flush }: {
   const styles = useStyles();
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <SchoolWallpaper />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={flush ? { paddingBottom: space.lg } : styles.page}
@@ -104,11 +106,41 @@ export function Page({ children, onRefresh, refreshing, flush }: {
   );
 }
 
+const WALLPAPER_DOODLES: { icon: IconName; x: number; y: number; size: number; rotation: string }[] = [
+  { icon: 'book-outline', x: 8, y: 7, size: 25, rotation: '-17deg' },
+  { icon: 'pencil-outline', x: 79, y: 14, size: 24, rotation: '21deg' },
+  { icon: 'calculator-outline', x: 46, y: 25, size: 22, rotation: '-9deg' },
+  { icon: 'school-outline', x: 17, y: 37, size: 28, rotation: '12deg' },
+  { icon: 'ribbon-outline', x: 84, y: 42, size: 25, rotation: '-15deg' },
+  { icon: 'flask-outline', x: 52, y: 54, size: 24, rotation: '13deg' },
+  { icon: 'bookmark-outline', x: 8, y: 66, size: 22, rotation: '18deg' },
+  { icon: 'document-text-outline', x: 75, y: 72, size: 27, rotation: '-11deg' },
+  { icon: 'color-palette-outline', x: 37, y: 84, size: 24, rotation: '9deg' },
+  { icon: 'bulb-outline', x: 90, y: 91, size: 21, rotation: '-18deg' },
+];
+
+function SchoolWallpaper() {
+  return (
+    <View pointerEvents="none" accessible={false} style={StyleSheet.absoluteFill}>
+      {WALLPAPER_DOODLES.map((doodle, index) => (
+        <View key={`${doodle.icon}:${index}`} style={{
+          position: 'absolute', left: `${doodle.x}%`, top: `${doodle.y}%`,
+          opacity: 0.075, transform: [{ rotate: doodle.rotation }],
+        }}>
+          <Icon name={doodle.icon} size={doodle.size} color={colors.primary} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 /** Loading, error-with-retry and pull-to-refresh around data that comes from useAsync. */
 export function AsyncPage<T>({ state, children }: { state: AsyncState<T>; children: (data: T) => ReactNode }) {
   const styles = useStyles();
   if (state.data === null && state.loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
+    return <View style={styles.center} accessibilityRole="progressbar" accessibilityLabel={t('Loading…')}>
+      <ActivityIndicator size="large" color={colors.primary} />
+    </View>;
   }
   if (state.data === null) {
     return (
@@ -126,13 +158,16 @@ export function AsyncPage<T>({ state, children }: { state: AsyncState<T>; childr
   );
 }
 
-export function Empty({ title, hint, icon = 'document-text-outline' }: { title: string; hint?: string; icon?: IconName }) {
+export function Empty({ title, hint, icon = 'document-text-outline', actionTitle, onAction }: {
+  title: string; hint?: string; icon?: IconName; actionTitle?: string; onAction?: () => void;
+}) {
   const styles = useStyles();
   return (
     <View style={styles.empty}>
-      <View style={styles.emptyIcon}><Icon name={icon} size={30} color={colors.accent} /></View>
-      <Text style={[styles.body, { fontWeight: '700', textAlign: 'center' }]}>{title}</Text>
+      <View accessible={false} style={styles.emptyIcon}><Icon name={icon} size={30} color={colors.accent} /></View>
+      <Text accessibilityRole="header" style={[styles.body, { fontWeight: '700', textAlign: 'center' }]}>{title}</Text>
       {hint ? <Text style={[styles.body, { color: colors.muted, textAlign: 'center' }]}>{hint}</Text> : null}
+      {actionTitle && onAction ? <Button title={actionTitle} variant="ghost" onPress={onAction} /> : null}
     </View>
   );
 }
@@ -163,7 +198,7 @@ export function ErrorBanner({ error, message }: { error?: unknown; message?: str
 export function Notice({ children }: { children: ReactNode }) {
   return (
     <View style={useStyles().notice}>
-      <Text style={{ color: colors.warn, fontSize: 15 }}>{children}</Text>
+      <Text style={{ color: colors.warn, fontSize: 15, fontFamily: fonts.medium }}>{children}</Text>
     </View>
   );
 }
@@ -172,16 +207,19 @@ export function Notice({ children }: { children: ReactNode }) {
 export function Pill({ label, fg, bg }: { label: string; fg: string; bg: string }) {
   return (
     <View style={[useStyles().pill, { backgroundColor: bg }]}>
-      <Text style={{ color: fg, fontSize: 12, fontWeight: '800' }}>{label}</Text>
+      <Text style={{ color: fg, fontSize: 12, fontWeight: '800', fontFamily: fonts.bold }}>{label}</Text>
     </View>
   );
 }
 
-export function ProgressBar({ percent, color = colors.accent }: { percent: number; color?: string }) {
+export function ProgressBar({ percent, color = colors.accent, label = t('Placement progress') }: {
+  percent: number; color?: string; label?: string;
+}) {
   const clamped = Math.max(0, Math.min(100, percent));
   return (
     <View
       accessibilityRole="progressbar"
+      accessibilityLabel={label}
       accessibilityValue={{ min: 0, max: 100, now: Math.round(clamped) }}
       style={useStyles().track}
     >
@@ -214,7 +252,7 @@ export function Button({ title, onPress, variant = 'primary', loading, disabled 
         { backgroundColor: bg, opacity: off ? 0.55 : pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] },
       ]}
     >
-      {loading ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontSize: 16, fontWeight: '700' }}>{title}</Text>}
+      {loading ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontSize: 16, fontWeight: '700', fontFamily: fonts.bold }}>{title}</Text>}
     </Pressable>
   );
 }
@@ -240,6 +278,7 @@ export function TextField({ label, value, onChangeText, error, hint, multiline, 
       <Text style={styles.label}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
+        accessibilityHint={error ?? hint}
         value={value}
         onChangeText={onChangeText}
         editable={editable}
@@ -269,11 +308,12 @@ export function Chip({ label, selected, onPress }: { label: string; selected: bo
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ selected }}
       onPress={onPress}
       style={[styles.chip, selected && { backgroundColor: colors.accent, borderColor: colors.accent }]}
     >
-      <Text style={{ color: selected ? '#FFFFFF' : colors.text, fontSize: 14, fontWeight: '700' }}>{label}</Text>
+      <Text style={{ color: selected ? '#FFFFFF' : colors.text, fontSize: 14, fontWeight: '700', fontFamily: fonts.semibold }}>{label}</Text>
     </Pressable>
   );
 }
@@ -290,7 +330,7 @@ export function Avatar({ name, uri, size = 44, color = colors.primarySoft, ink =
     <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />
   ) : (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: ink, fontWeight: '800', fontSize: size * 0.36 }}>{initials}</Text>
+      <Text style={{ color: ink, fontWeight: '800', fontSize: size * 0.36, fontFamily: fonts.heavy }}>{initials}</Text>
     </View>
   );
   if (!onPress) return inner;
@@ -303,7 +343,7 @@ export function Avatar({ name, uri, size = 44, color = colors.primarySoft, ink =
 
 /** A big number, kept for the progress and score. */
 export function Marked({ children, size, color = colors.text }: { children: ReactNode; size: number; color?: string; mono?: boolean }) {
-  return <Text style={{ fontSize: size, fontWeight: '800', color, letterSpacing: -0.5 }}>{children}</Text>;
+  return <Text style={{ fontSize: size, fontWeight: '800', color, letterSpacing: -0.5, fontFamily: fonts.display }}>{children}</Text>;
 }
 
 type Tone = 'accent' | 'mint' | 'peri' | 'sun';
@@ -315,9 +355,10 @@ export function Stats({ items }: { items: { label: string; value: string | numbe
   return (
     <View style={{ flexDirection: 'row', gap: space.sm }}>
       {items.map((it, i) => (
-        <View key={it.label} style={[styles.stat, { backgroundColor: toneColor(it.tone ?? (['accent', 'mint', 'peri'] as const)[i % 3]!) }]}>
-          <Text style={{ fontSize: 30, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1 }}>{it.value}</Text>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.92)' }} numberOfLines={1}>{it.label}</Text>
+        <View key={it.label} accessible accessibilityLabel={`${it.value}. ${it.label}`}
+          style={[styles.stat, { backgroundColor: toneColor(it.tone ?? (['accent', 'mint', 'peri'] as const)[i % 3]!) }]}>
+          <Text style={{ fontSize: 30, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, fontFamily: fonts.display }}>{it.value}</Text>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.92)', fontFamily: fonts.medium }} numberOfLines={1}>{it.label}</Text>
         </View>
       ))}
     </View>
@@ -328,7 +369,7 @@ export function Stats({ items }: { items: { label: string; value: string | numbe
 export function Hero({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View style={{ gap: 2 }}>
-      <Text style={{ fontSize: 26, fontWeight: '800', color: colors.text, letterSpacing: -0.5 }}>{title}</Text>
+      <Text style={{ fontSize: 26, fontWeight: '800', color: colors.text, letterSpacing: -0.5, fontFamily: fonts.display }}>{title}</Text>
       {subtitle ? <Text style={{ color: colors.muted, fontSize: 15 }}>{subtitle}</Text> : null}
     </View>
   );
@@ -339,9 +380,9 @@ export function Paper() { return null; }
 
 function build() {
   return StyleSheet.create({
-    title: { fontSize: 24, fontWeight: '800', color: colors.text, letterSpacing: -0.4 },
-    section: { fontSize: 20, fontWeight: '800', color: colors.text, marginTop: space.sm, letterSpacing: -0.3 },
-    body: { fontSize: 16, color: colors.text, lineHeight: 22 },
+    title: { fontSize: 25, fontWeight: '800', color: colors.text, letterSpacing: -0.5, fontFamily: fonts.display },
+    section: { fontSize: 20, fontWeight: '800', color: colors.text, marginTop: space.sm, letterSpacing: -0.35, fontFamily: fonts.display },
+    body: { fontSize: 16, color: colors.text, lineHeight: 23, fontFamily: fonts.body },
     card: {
       backgroundColor: colors.card, borderRadius: radius, padding: space.md, gap: space.sm,
       borderWidth: 1, borderColor: colors.border, ...lift(0.6),
@@ -349,8 +390,8 @@ function build() {
     tile: { flex: 1, minHeight: 120, borderRadius: radius, padding: space.md, justifyContent: 'space-between', overflow: 'hidden' },
     tileDeco: { position: 'absolute', right: -24, top: -24, width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.18)' },
     tileIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.24)', alignItems: 'center', justifyContent: 'center' },
-    tileTitle: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },
-    tileSub: { fontSize: 13, color: 'rgba(255,255,255,0.9)' },
+    tileTitle: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', fontFamily: fonts.display },
+    tileSub: { fontSize: 13, color: 'rgba(255,255,255,0.9)', fontFamily: fonts.body },
     page: { padding: space.md, gap: space.md, paddingBottom: space.lg * 2 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     empty: { alignItems: 'center', gap: space.xs, paddingVertical: space.lg, paddingHorizontal: space.md },
@@ -363,13 +404,13 @@ function build() {
     pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, alignSelf: 'flex-start' },
     track: { height: 12, borderRadius: 8, backgroundColor: colors.track, overflow: 'hidden' },
     button: { minHeight: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
-    label: { fontSize: 14, fontWeight: '700', color: colors.text },
+    label: { fontSize: 14, fontWeight: '700', color: colors.text, fontFamily: fonts.semibold },
     input: {
       minHeight: 54, borderRadius: 16, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.cardAlt,
-      paddingHorizontal: 16, paddingVertical: 12, fontSize: 16, color: colors.text,
+      paddingHorizontal: 16, paddingVertical: 12, fontSize: 16, color: colors.text, fontFamily: fonts.body,
     },
     chip: {
-      minHeight: 38, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1.5, borderColor: colors.border,
+      minHeight: 44, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1.5, borderColor: colors.border,
       backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center',
     },
     stat: { flex: 1, borderRadius: 18, padding: space.md, gap: 2 },

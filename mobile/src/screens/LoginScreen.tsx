@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Image, Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { AttachLogClient } from '../api/client';
 import { SERVER_LOCKED, SHOW_SERVER_SETTINGS, normalizeServer } from '../api/config';
@@ -9,9 +10,11 @@ import { t } from '../i18n';
 import { hasErrors, validateLogin, validateNewPassword, validateRegister } from '../lib/validation';
 import type { FieldErrors } from '../lib/validation';
 import { useSession } from '../state/session';
-import { Button, Card, ErrorBanner, HeroBand, Notice, Page, TextField, Title } from '../ui/kit';
+import { Button, Card, ErrorBanner, Notice, Page, TextField, Title } from '../ui/kit';
 import { colors } from '../ui/theme';
 import { LanguageChips } from '../ui/LanguageChips';
+import { Icon } from '../ui/Icon';
+import { fonts } from '../ui/fonts';
 import { ConnectionCheck } from './ConnectionCheck';
 
 type Mode = 'login' | 'register' | 'forgot';
@@ -32,11 +35,59 @@ export function LoginScreen() {
   const [errors, setErrors] = useState<FieldErrors<'name' | 'email' | 'password' | 'code'>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
+  const entrance = useRef(new Animated.Value(0)).current;
+  const float = useRef(new Animated.Value(0)).current;
+  const formTransition = useRef(new Animated.Value(1)).current;
 
   // Wake a sleeping free server while the person types, so the first sign-in is not slow.
   useEffect(() => { void new AttachLogClient({ server }).health(); }, [server]);
 
-  const go = (next: Mode) => { setMode(next); setErrors({}); setFailure(null); };
+  useEffect(() => {
+    let active = true;
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (active) setReduceMotion(enabled);
+    }).catch((error: unknown) => {
+      console.warn('Could not read the reduced-motion preference', error);
+      if (active) setReduceMotion(false);
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (reduceMotion === null) return;
+    if (reduceMotion) {
+      entrance.stopAnimation();
+      float.stopAnimation();
+      formTransition.stopAnimation();
+      entrance.setValue(1);
+      float.setValue(0);
+      formTransition.setValue(1);
+      return;
+    }
+    Animated.spring(entrance, { toValue: 1, speed: 1.1, bounciness: 4, useNativeDriver: true }).start();
+    const motion = Animated.loop(Animated.sequence([
+      Animated.timing(float, { toValue: 1, duration: 2400, useNativeDriver: true }),
+      Animated.timing(float, { toValue: 0, duration: 2400, useNativeDriver: true }),
+    ]));
+    motion.start();
+    return () => motion.stop();
+  }, [entrance, float, formTransition, reduceMotion]);
+
+  const go = (next: Mode) => {
+    setMode(next);
+    setErrors({});
+    setFailure(null);
+    formTransition.stopAnimation();
+    formTransition.setValue(reduceMotion === true ? 1 : 0);
+    if (reduceMotion !== true) {
+      Animated.spring(formTransition, { toValue: 1, speed: 1.5, bounciness: 2, useNativeDriver: true }).start();
+    }
+  };
 
   const submit = async () => {
     const found = mode === 'login' ? validateLogin(email, password) : validateRegister({ name, email, password, code });
@@ -61,90 +112,164 @@ export function LoginScreen() {
     );
   }
 
+  const heroMotion = {
+    opacity: entrance,
+    transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
+  };
+  const floatMotion = float.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
+
   return (
     <Page flush>
-      <HeroBand top={insets.top + 12} bottom={56}>
-        <View style={{ gap: 12, alignItems: 'flex-start' }}>
-          <View style={{ width: 72, height: 72, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
-            <Image source={require('../../assets/splash-icon.png')} style={{ width: 56, height: 56 }} accessibilityLabel="AttachLog logo" />
+      <View style={{ flex: 1, minHeight: 720, backgroundColor: colors.bg }}>
+        <LinearGradient
+          colors={['#0D3737', '#176B65', '#277F72']}
+          start={{ x: 0.05, y: 0 }}
+          end={{ x: 0.95, y: 1 }}
+          style={{ paddingTop: insets.top + 22, paddingHorizontal: 26, paddingBottom: 58, minHeight: 365, overflow: 'hidden' }}
+        >
+          <View pointerEvents="none" style={{ position: 'absolute', width: 210, height: 210, borderRadius: 110, backgroundColor: 'rgba(201,247,218,0.09)', right: -74, top: 18 }} />
+          <View pointerEvents="none" style={{ position: 'absolute', width: 150, height: 150, borderRadius: 80, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', right: -30, top: 52 }} />
+          <Animated.View style={heroMotion}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 38 }}>
+              <View style={{ width: 54, height: 54, borderRadius: 18, backgroundColor: '#F6F4EA', alignItems: 'center', justifyContent: 'center', ...Platform.select({ android: { elevation: 5 }, default: {} }) }}>
+                <Image source={require('../../assets/splash-icon.png')} style={{ width: 48, height: 48 }} accessibilityLabel="AttachLog logo" />
+              </View>
+              <View>
+                <Text style={{ color: '#FFFFFF', fontFamily: fonts.display, fontSize: 23, letterSpacing: -0.7 }}>AttachLog</Text>
+                <Text style={{ color: '#B9E6D8', fontFamily: fonts.bold, fontSize: 10, letterSpacing: 1.7 }}>{t('FIELDWORK, IN FOCUS')}</Text>
+              </View>
+            </View>
+            <Text style={{ color: '#D5F3E7', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, fontFamily: fonts.bold }}>
+              {t('YOUR NEXT CHAPTER STARTS HERE')}
+            </Text>
+            <Text style={{ color: '#FFFFFF', fontFamily: fonts.display, fontSize: 37, lineHeight: 42, letterSpacing: -1.5, marginTop: 9, maxWidth: 330 }}>
+              {t('Make your placement count.')}
+            </Text>
+            <Text style={{ color: 'rgba(239,255,248,0.78)', fontFamily: fonts.body, fontSize: 15, lineHeight: 22, marginTop: 10, maxWidth: 315 }}>
+              {t('One thoughtful space for your work, your people, and every bit of progress.')}
+            </Text>
+            <Animated.View style={{
+              position: 'absolute', right: 4, bottom: -34, width: 54, height: 54, borderRadius: 19,
+              backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)',
+              alignItems: 'center', justifyContent: 'center', transform: [{ translateY: floatMotion }, { rotate: '9deg' }],
+            }}>
+              <Icon name="book-outline" size={26} color="#E5F8ED" />
+            </Animated.View>
+            <Animated.View style={{
+              position: 'absolute', right: 64, bottom: 20, width: 38, height: 38, borderRadius: 14,
+              backgroundColor: '#F6A17A', alignItems: 'center', justifyContent: 'center',
+              transform: [{ translateY: Animated.multiply(floatMotion, -0.6) }, { rotate: '-13deg' }],
+            }}>
+              <Icon name="pencil-outline" size={20} color="#5A3529" />
+            </Animated.View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 22 }}>
+              <View style={{ width: 28, height: 2, backgroundColor: '#F6A17A', borderRadius: 1 }} />
+              <Text style={{ color: '#D5F3E7', fontFamily: fonts.medium, fontSize: 12 }}>
+                {t('Learn. Contribute. Grow.')}
+              </Text>
+            </View>
+          </Animated.View>
+        </LinearGradient>
+
+        <Animated.View style={{
+          flex: 1, marginTop: -30, paddingHorizontal: 22, paddingTop: 26, paddingBottom: 26, gap: 17,
+          backgroundColor: colors.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30,
+          ...Platform.select({ ios: { shadowColor: '#102F31', shadowOpacity: 0.12, shadowRadius: 22, shadowOffset: { width: 0, height: -8 } }, android: { elevation: 8 }, default: {} }),
+          opacity: formTransition,
+          transform: [{ translateY: formTransition.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
+        }}>
+          <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 4, backgroundColor: colors.border, marginTop: -8, marginBottom: 1 }} />
+          {notice ? <Notice>{notice}</Notice> : null}
+          {failure ? <ErrorBanner message={failure} /> : null}
+
+          <View style={{ gap: 4 }}>
+            <Text style={{ color: colors.primary, fontFamily: fonts.bold, fontSize: 11, letterSpacing: 1.5 }}>
+              {mode === 'login' ? t('GOOD TO SEE YOU') : t('JOIN THE COMMUNITY')}
+            </Text>
+            <Text style={{ fontSize: 27, fontFamily: fonts.display, color: colors.text, letterSpacing: -0.8 }}>
+              {mode === 'login' ? t('Welcome back') : t('Create your account')}
+            </Text>
+            <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 20, fontFamily: fonts.body }}>
+              {mode === 'login' ? t('Pick up where your placement journey left off.') : t('A few details, then you’re ready to get started.')}
+            </Text>
           </View>
-          <Text style={{ color: '#FFFFFF', fontSize: 34, fontWeight: '800', letterSpacing: -0.8 }}>AttachLog</Text>
-          <Text style={{ color: 'rgba(255,255,255,0.82)', fontSize: 16, maxWidth: 300 }}>
-            {t('Internship logbook for students, schools and companies')}
-          </Text>
-        </View>
-      </HeroBand>
 
-      <View style={{ marginTop: -28, backgroundColor: colors.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 20, paddingTop: 24, gap: 16, paddingBottom: 32 }}>
-        {notice ? <Notice>{notice}</Notice> : null}
-        {failure ? <ErrorBanner message={failure} /> : null}
+          <View style={{ flexDirection: 'row', padding: 4, borderRadius: 16, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border }}>
+            {(['login', 'register'] as const).map((next) => {
+              const selected = mode === next;
+              return (
+                <Pressable key={next} accessibilityRole="button" accessibilityState={{ selected }} onPress={() => go(next)}
+                  style={{
+                    flex: 1, minHeight: 42, borderRadius: 12, backgroundColor: selected ? colors.card : 'transparent',
+                    alignItems: 'center', justifyContent: 'center',
+                    ...(selected ? { shadowColor: '#173438', shadowOpacity: 0.08, shadowRadius: 5,
+                      shadowOffset: { width: 0, height: 2 }, elevation: 2 } : {}),
+                  }}>
+                  <Text style={{ color: selected ? colors.primary : colors.muted, fontWeight: '700', fontSize: 14, fontFamily: fonts.bold }}>
+                    {next === 'login' ? t('Sign in') : t('Create account')}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-        <View style={{ gap: 16 }}>
-          <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, letterSpacing: -0.5 }}>
-            {mode === 'login' ? t('Sign in') : t('Create account')}
-          </Text>
-          {mode === 'register' ? (
-            <TextField label={t('Full name')} value={name} onChangeText={setName} error={errors.name} autoCapitalize="words" />
-          ) : null}
-          <TextField label={t('Email')} value={email} onChangeText={setEmail} error={errors.email}
-            autoCapitalize="none" keyboardType="email-address" />
-          <TextField label={t('Password')} value={password} onChangeText={setPassword} error={errors.password}
-            secureTextEntry autoCapitalize="none" hint={mode === 'register' ? t('At least 8 characters.') : undefined} />
-          {mode === 'register' ? (
-            <>
-              <TextField label={t('Code')} value={code} onChangeText={setCode} error={errors.code} autoCapitalize="none"
-                hint={t("Students: your school's code. Supervisors and coordinators: the code from your invitation.")} />
-              <Pressable accessibilityRole="button" onPress={() => setAsStudent((v) => !v)}
-                style={{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1.5, borderColor: asStudent ? colors.accent : colors.border, backgroundColor: asStudent ? colors.accentSoft : colors.cardAlt }}>
-                <Text style={{ color: asStudent ? colors.accent : colors.text, fontWeight: '700', fontSize: 15 }}>
-                  {asStudent ? `✓ ${t('Signing up as student')}` : t('Sign up as student')}
-                </Text>
-                <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>{t('Add your field of study and specialty to help your coordinator place you.')}</Text>
+          <View style={{ gap: 14 }}>
+            {mode === 'register' ? (
+              <TextField label={t('Full name')} value={name} onChangeText={setName} error={errors.name} autoCapitalize="words" />
+            ) : null}
+            <TextField label={t('Email')} value={email} onChangeText={setEmail} error={errors.email}
+              autoCapitalize="none" keyboardType="email-address" />
+            <TextField label={t('Password')} value={password} onChangeText={setPassword} error={errors.password}
+              secureTextEntry autoCapitalize="none" hint={mode === 'register' ? t('At least 8 characters.') : undefined} />
+            {mode === 'register' ? (
+              <>
+                <TextField label={t('Code')} value={code} onChangeText={setCode} error={errors.code} autoCapitalize="none"
+                  hint={t("Students: your school's code. Supervisors and coordinators: the code from your invitation.")} />
+                <Pressable accessibilityRole="button" accessibilityState={{ selected: asStudent }} onPress={() => setAsStudent((v) => !v)}
+                  style={{ padding: 14, borderRadius: 18, borderWidth: 1.5, borderColor: asStudent ? colors.primary : colors.border, backgroundColor: asStudent ? colors.primarySoft : colors.cardAlt, gap: 4 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Icon name={asStudent ? 'checkmark-done-outline' : 'school-outline'} size={19} color={asStudent ? colors.primary : colors.muted} />
+                    <Text style={{ color: asStudent ? colors.primary : colors.text, fontWeight: '700', fontSize: 15, fontFamily: fonts.bold }}>
+                      {asStudent ? t('Signing up as student') : t('Sign up as student')}
+                    </Text>
+                  </View>
+                  <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 19, marginLeft: 27, fontFamily: fonts.body }}>{t('Add your field of study and specialty to help your coordinator place you.')}</Text>
+                </Pressable>
+                {asStudent ? (
+                  <>
+                    <TextField label={t('Field of study')} value={fieldOfStudy} onChangeText={setFieldOfStudy} autoCapitalize="words" hint={t('e.g. Computer Science, Nursing')} />
+                    <TextField label={t('Specialty / option')} value={specialty} onChangeText={setSpecialty} autoCapitalize="words" hint={t('e.g. Software Engineering, Pediatrics')} />
+                  </>
+                ) : null}
+              </>
+            ) : null}
+            <Button title={mode === 'login' ? t('Sign in') : t('Create account')} onPress={submit} loading={busy} />
+            {mode === 'login' ? (
+              <Pressable accessibilityRole="button" onPress={() => go('forgot')} style={{ minHeight: 34, justifyContent: 'center' }}>
+                <Text style={{ color: colors.muted, fontSize: 14, textAlign: 'center', fontFamily: fonts.medium }}>{t('Forgot your password?')}</Text>
               </Pressable>
-              {asStudent ? (
-                <>
-                  <TextField label={t('Field of study')} value={fieldOfStudy} onChangeText={setFieldOfStudy} autoCapitalize="words" hint={t('e.g. Computer Science, Nursing')} />
-                  <TextField label={t('Specialty / option')} value={specialty} onChangeText={setSpecialty} autoCapitalize="words" hint={t('e.g. Software Engineering, Pediatrics')} />
-                </>
+            ) : null}
+          </View>
+
+          <View style={{ alignItems: 'center', paddingTop: 2 }}><LanguageChips /></View>
+
+          {SHOW_SERVER_SETTINGS ? (
+            <>
+              <Pressable accessibilityRole="button" onPress={() => setShowServer((v) => !v)} style={{ paddingVertical: 4 }}>
+                <Text style={{ color: colors.muted, fontSize: 13, textAlign: 'center', fontFamily: fonts.medium }}>
+                  {showServer ? t('Hide server settings') : t('Server settings')}
+                </Text>
+              </Pressable>
+              {showServer ? (
+                <Card>
+                  <TextField label={t('Server address')} value={address} onChangeText={setAddress} autoCapitalize="none"
+                    hint={t('Only change this if you were given a different server address.')} />
+                  <ConnectionCheck server={normalizeServer(address) || server} />
+                </Card>
               ) : null}
             </>
           ) : null}
-          <Button title={mode === 'login' ? t('Sign in') : t('Create account')} onPress={submit} loading={busy} />
-          {mode === 'login' ? (
-            <Pressable accessibilityRole="button" onPress={() => go('forgot')} style={{ paddingVertical: 4 }}>
-              <Text style={{ color: colors.muted, fontSize: 15, textAlign: 'center' }}>{t('Forgot your password?')}</Text>
-            </Pressable>
-          ) : null}
-        </View>
-
-        <Pressable accessibilityRole="button" onPress={() => go(mode === 'login' ? 'register' : 'login')} style={{ paddingVertical: 8 }}>
-          <Text style={{ color: colors.accent, fontSize: 15, fontWeight: '800', textAlign: 'center' }}>
-            {mode === 'login' ? t('New here? Create an account with a code') : t('I already have an account')}
-          </Text>
-        </Pressable>
-
-        <View style={{ alignItems: 'center' }}><LanguageChips /></View>
-
-        <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'center' }}>
-          {server.replace(/^https?:\/\//, '')}
-        </Text>
-
-        {SHOW_SERVER_SETTINGS ? (
-          <>
-            <Pressable accessibilityRole="button" onPress={() => setShowServer((v) => !v)} style={{ paddingVertical: 8 }}>
-              <Text style={{ color: colors.muted, fontSize: 14, textAlign: 'center' }}>
-                {showServer ? t('Hide server settings') : t('Server settings')}
-              </Text>
-            </Pressable>
-            {showServer ? (
-              <Card>
-                <TextField label={t('Server address')} value={address} onChangeText={setAddress} autoCapitalize="none"
-                  hint={t('Only change this if you were given a different server address.')} />
-                <ConnectionCheck server={normalizeServer(address) || server} />
-              </Card>
-            ) : null}
-          </>
-        ) : null}
+        </Animated.View>
       </View>
     </Page>
   );
