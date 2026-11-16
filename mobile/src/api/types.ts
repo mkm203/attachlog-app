@@ -115,6 +115,12 @@ export interface Me {
   email: string;
   is_admin: boolean;
   email_verified: boolean;
+  phone: string | null;
+  field_of_study: string | null;
+  specialty: string | null;
+  teaching_field: string | null;
+  bio: string | null;
+  avatar: string | null;
   memberships: Membership[];
 }
 
@@ -130,6 +136,11 @@ export interface Member {
   name: string;
   email: string;
   role: Role;
+  phone: string | null;
+  field_of_study: string | null;
+  specialty: string | null;
+  teaching_field: string | null;
+  avatar: string | null;
 }
 
 export interface InviteInfo {

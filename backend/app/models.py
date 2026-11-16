@@ -41,6 +41,12 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     # true once the person proved they own the address (redeemed an invite code sent to it, or reset by email)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    field_of_study: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    specialty: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    teaching_field: Mapped[str | None] = mapped_column(String(120), nullable=True)  # academic supervisors
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar: Mapped[str | None] = mapped_column(Text, nullable=True)  # small data URI or URL
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 

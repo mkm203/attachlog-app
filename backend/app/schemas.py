@@ -230,6 +230,8 @@ class RegisterRequest(BaseModel):
     email: Email
     password: Password
     code: str = Field(min_length=4, max_length=40)
+    field_of_study: str | None = Field(default=None, max_length=120)
+    specialty: str | None = Field(default=None, max_length=120)
 
 
 class RedeemRequest(BaseModel):
@@ -266,7 +268,23 @@ class MeOut(BaseModel):
     email: str
     is_admin: bool
     email_verified: bool
+    phone: str | None = None
+    field_of_study: str | None = None
+    specialty: str | None = None
+    teaching_field: str | None = None
+    bio: str | None = None
+    avatar: str | None = None
     memberships: list[MembershipOut]
+
+
+class ProfileUpdate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    phone: str | None = Field(default=None, max_length=40)
+    field_of_study: str | None = Field(default=None, max_length=120)
+    specialty: str | None = Field(default=None, max_length=120)
+    teaching_field: str | None = Field(default=None, max_length=120)
+    bio: str | None = Field(default=None, max_length=2000)
+    avatar: str | None = Field(default=None, max_length=500000)  # data URI (kept reasonably small on client)
 
 
 class TokenResponse(BaseModel):
@@ -334,6 +352,11 @@ class MemberOut(BaseModel):
     name: str
     email: str
     role: Role
+    phone: str | None = None
+    field_of_study: str | None = None
+    specialty: str | None = None
+    teaching_field: str | None = None
+    avatar: str | None = None
 
 
 class SchoolDetail(BaseModel):

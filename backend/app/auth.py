@@ -16,7 +16,7 @@ from app.errors import ApiError
 from app.models import Company, PasswordReset, School, User, now
 from app.people import redeem, user_by_email
 from app.schemas import (ChangePassword, ErrorResponse, ForgotRequest, LoginRequest, MeOut, MembershipOut,
-                         RedeemRequest, RegisterRequest, ResetRequest, TokenResponse)
+                         ProfileUpdate, RedeemRequest, RegisterRequest, ResetRequest, TokenResponse)
 from app.security import current_user, hash_password, make_token, verify_password
 
 router = APIRouter(prefix="/v1", tags=["accounts"])
@@ -36,6 +36,8 @@ def me_out(db: Session, user: User) -> MeOut:
     schools = {s.id: s.name for s in db.scalars(select(School).where(School.id.in_([m.school_id for m in rows if m.school_id])))} if rows else {}
     companies = {c.id: c.name for c in db.scalars(select(Company).where(Company.id.in_([m.company_id for m in rows if m.company_id])))} if rows else {}
     return MeOut(id=user.id, name=user.name, email=user.email, is_admin=user.is_admin, email_verified=user.email_verified,
+                 phone=user.phone, field_of_study=user.field_of_study, specialty=user.specialty,
+                 teaching_field=user.teaching_field, bio=user.bio, avatar=user.avatar,
                  memberships=[MembershipOut(id=m.id, role=m.role, school_id=m.school_id, school_name=schools.get(m.school_id),
                                             company_id=m.company_id, company_name=companies.get(m.company_id)) for m in rows])
 
@@ -53,7 +55,9 @@ def register(data: RegisterRequest, db: DB, request: Request):
     ratelimit.code_attempts.guard(ip)
     if user_by_email(db, data.email):
         raise ApiError(409, "email_taken", "This email already has an account. Log in, then use 'Join with a code'.")
-    user = User(email=data.email, name=data.name.strip(), password_hash=hash_password(data.password))
+    user = User(email=data.email, name=data.name.strip(), password_hash=hash_password(data.password),
+                field_of_study=(getattr(data, 'field_of_study', None) or '').strip() or None,
+                specialty=(getattr(data, 'specialty', None) or '').strip() or None)
     db.add(user)
     try:
         db.flush()
@@ -111,6 +115,19 @@ def change_password(data: ChangePassword, db: DB, user: Me):
         raise ApiError(403, "wrong_password", "The current password is wrong")
     user.password_hash = hash_password(data.new_password)
     db.commit()
+
+
+@router.put("/me", response_model=MeOut, responses={401: E[401], 422: E[422]})
+def update_profile(data: ProfileUpdate, db: DB, user: Me):
+    user.name = data.name.strip()
+    user.phone = (data.phone or '').strip() or None
+    user.field_of_study = (data.field_of_study or '').strip() or None
+    user.specialty = (data.specialty or '').strip() or None
+    user.teaching_field = (data.teaching_field or '').strip() or None
+    user.bio = (data.bio or '').strip() or None
+    user.avatar = data.avatar or None
+    db.commit()
+    return me_out(db, user)
 
 
 def _hash_code(code: str) -> str:

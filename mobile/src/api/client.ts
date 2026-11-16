@@ -145,7 +145,7 @@ export class AttachLogClient {
   }
 
   /** Create an account with an invite code or a school's join code. */
-  register(input: { name: string; email: string; password: string; code: string }): Promise<LoginResult> {
+  register(input: { name: string; email: string; password: string; code: string; field_of_study?: string | null; specialty?: string | null }): Promise<LoginResult> {
     return this.rest('/v1/auth/register', { method: 'POST', body: input, auth: false });
   }
 
@@ -161,6 +161,16 @@ export class AttachLogClient {
   changePassword(currentPassword: string, newPassword: string) {
     return this.rest<null>('/v1/me/password', {
       method: 'POST', body: { current_password: currentPassword, new_password: newPassword },
+    });
+  }
+
+  updateProfile(profile: { name: string; phone?: string | null; field_of_study?: string | null; specialty?: string | null; teaching_field?: string | null; bio?: string | null; avatar?: string | null }) {
+    return this.rest<Me>('/v1/me', { method: 'PUT', body: profile });
+  }
+
+  submitFeedback(entryId: string, comment: string) {
+    return this.rest<Review>(`/v1/entries/${encodeURIComponent(entryId)}/feedback`, {
+      method: 'POST', body: { decision: 'approved', comment },
     });
   }
 

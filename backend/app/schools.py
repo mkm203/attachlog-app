@@ -46,7 +46,9 @@ def grant_out(db: Session, email: str, role: str, created_by: str, school: Schoo
 def detail(db: Session, school: School) -> SchoolDetail:
     rows = db.execute(select(Membership, User).join(User, User.id == Membership.user_id)
                       .where(Membership.school_id == school.id).order_by(Membership.role, User.name)).all()
-    members = [MemberOut(user_id=u.id, name=u.name, email=u.email, role=m.role) for m, u in rows]
+    members = [MemberOut(user_id=u.id, name=u.name, email=u.email, role=m.role, phone=u.phone,
+                         field_of_study=u.field_of_study, specialty=u.specialty,
+                         teaching_field=u.teaching_field, avatar=u.avatar) for m, u in rows]
     invites = db.scalars(select(Invite).where(Invite.school_id == school.id, Invite.accepted_at.is_(None),
                                               Invite.expires_at > now()).order_by(Invite.created_at.desc())).all()
     return SchoolDetail(school=SchoolOut.model_validate(school), members=members,

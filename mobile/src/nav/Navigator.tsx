@@ -4,10 +4,24 @@ import { BackHandler } from 'react-native';
 
 import type { Entry, Placement } from '../api/types';
 
+export interface ProfilePerson {
+  user_id?: string;
+  name: string;
+  email?: string | null;
+  role?: string | null;
+  phone?: string | null;
+  field_of_study?: string | null;
+  specialty?: string | null;
+  teaching_field?: string | null;
+  bio?: string | null;
+  avatar?: string | null;
+}
+
 export type Route =
   | { name: 'home' }
   | { name: 'account' }
   | { name: 'school' }
+  | { name: 'profile'; userId?: string; person?: ProfilePerson }
   | { name: 'placement'; id: string }
   | { name: 'entry'; id: string }
   | { name: 'entryForm'; placementId: string; totalWeeks: number; week?: number; entry?: Entry }

@@ -22,7 +22,7 @@ interface SessionContextValue {
   api: AttachLogClient;
   /** `serverAddress` is what was typed on the login screen; it is saved when sign-in succeeds. */
   signIn: (email: string, password: string, serverAddress?: string) => Promise<void>;
-  register: (input: { name: string; email: string; password: string; code: string }, serverAddress?: string) => Promise<void>;
+  register: (input: { name: string; email: string; password: string; code: string; field_of_study?: string | null; specialty?: string | null }, serverAddress?: string) => Promise<void>;
   /** Replace the stored profile after it changed (joined a school, new role). */
   updateMe: (me: Me) => void;
   switchContext: (membershipId: string) => void;
@@ -87,10 +87,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [begin, targetFor]);
 
   const register = useCallback(async (
-    input: { name: string; email: string; password: string; code: string }, serverAddress?: string,
+    input: { name: string; email: string; password: string; code: string; field_of_study?: string | null; specialty?: string | null }, serverAddress?: string,
   ) => {
     const target = targetFor(serverAddress);
-    const clean = { ...input, name: input.name.trim(), email: input.email.trim(), code: input.code.trim() };
+    const clean = { ...input, name: input.name.trim(), email: input.email.trim(), code: input.code.trim(), field_of_study: input.field_of_study?.trim() || null, specialty: input.specialty?.trim() || null };
     await begin(await new AttachLogClient({ server: target }).register(clean), target);
   }, [begin, targetFor]);
 

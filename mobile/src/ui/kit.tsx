@@ -2,7 +2,7 @@ import { t } from '../i18n';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet,
+  ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, View,
 } from 'react-native';
 
@@ -277,16 +277,24 @@ export function Chip({ label, selected, onPress }: { label: string; selected: bo
 
 // ------------------------------------------------------------- showpieces
 
-/** Round badge with initials, for people. */
-export function Avatar({ name, size = 44, color = colors.primarySoft, ink = colors.primary }: {
-  name: string; size?: number; color?: string; ink?: string;
+/** Round badge with initials or a profile photo, for people. */
+export function Avatar({ name, uri, size = 44, color = colors.primarySoft, ink = colors.primary, onPress }: {
+  name: string; uri?: string | null; size?: number; color?: string; ink?: string; onPress?: () => void;
 }) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const initials = ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? parts[parts.length - 1]![0]! : '')).toUpperCase();
-  return (
+  const inner = uri ? (
+    <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />
+  ) : (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ color: ink, fontWeight: '800', fontSize: size * 0.36 }}>{initials}</Text>
     </View>
+  );
+  if (!onPress) return inner;
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={t('Profile')} onPress={onPress}>
+      {inner}
+    </Pressable>
   );
 }
 

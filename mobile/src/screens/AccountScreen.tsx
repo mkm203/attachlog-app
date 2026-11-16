@@ -10,6 +10,7 @@ import { contextLabel } from '../state/account';
 import { useSession, useUser } from '../state/session';
 import { useTheme } from '../state/theme';
 import type { ThemePreference } from '../state/theme';
+import { useNav } from '../nav/Navigator';
 import { LanguageChips } from '../ui/LanguageChips';
 import { Body, Button, Card, Chip, ErrorBanner, Notice, Page, SectionTitle, TextField, Title } from '../ui/kit';
 import { ConnectionCheck } from './ConnectionCheck';
@@ -17,6 +18,7 @@ import { ConnectionCheck } from './ConnectionCheck';
 export function AccountScreen() {
   const user = useUser();
   const theme = useTheme();
+  const nav = useNav();
   const { api, server, setServer, signOut, switchContext, updateMe } = useSession();
   const [address, setAddress] = useState(server);
   const [saved, setSaved] = useState(false);
@@ -73,6 +75,7 @@ export function AccountScreen() {
         <Title>{user.name}</Title>
         <Body muted>{user.email}</Body>
         {user.contextLabel ? <Body bold>{user.contextLabel}</Body> : null}
+        <Button title={t('Edit profile')} variant="ghost" onPress={() => nav.push({ name: 'profile' })} />
       </Card>
 
       {user.contexts.length > 1 ? (

@@ -127,6 +127,26 @@ def review_entry(entry_id: str, data: ReviewCreate, db: DB, user: Anyone):
     return review
 
 
+@router.post("/entries/{entry_id}/feedback", response_model=ReviewOut, status_code=201,
+             responses={k: E[k] for k in (401, 403, 404, 409, 422)})
+def academic_feedback(entry_id: str, data: ReviewCreate, db: DB, user: Anyone):
+    """Academic supervisor adds feedback on an entry approved by the company supervisor (status stays approved)."""
+    entry = find_entry(db, entry_id)
+    placement = find_placement(db, entry.placement_id)
+    if placement.academic_supervisor_id != user.id:
+        raise ApiError(403, "forbidden", "Only the academic supervisor assigned to this placement can leave academic feedback")
+    if entry.status != "approved":
+        raise ApiError(409, "entry_not_approved", "Academic feedback can be added once the company supervisor has approved the entry")
+    if not (data.comment and data.comment.strip()):
+        raise ApiError(422, "comment_required", "Feedback needs a comment")
+    review = Review(entry_id=entry.id, reviewer_id=user.id, decision="approved", comment=data.comment.strip())
+    db.add(review)
+    audit.record(db, actor_id=user.id, action="entry_academic_feedback", placement_id=placement.id, school_id=placement.school_id,
+                 detail=f"Week {entry.week}")
+    db.commit()
+    return review
+
+
 @router.get("/entries/{entry_id}/reviews", response_model=list[ReviewOut], responses={k: E[k] for k in (401, 403, 404)})
 def list_reviews(entry_id: str, db: DB, user: Anyone):
     entry = find_entry(db, entry_id)

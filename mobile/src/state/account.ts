@@ -7,6 +7,12 @@ export interface Account {
   name: string;
   email: string;
   emailVerified: boolean;
+  phone: string | null;
+  field_of_study: string | null;
+  specialty: string | null;
+  teaching_field: string | null;
+  bio: string | null;
+  avatar: string | null;
   /** Null for a brand-new account that has not joined anything yet. */
   role: Role | null;
   schoolId: string | null;
@@ -38,6 +44,12 @@ export function toAccount(session: Session): Account {
     name: session.user.name,
     email: session.user.email,
     emailVerified: session.user.email_verified,
+    phone: session.user.phone ?? null,
+    field_of_study: session.user.field_of_study ?? null,
+    specialty: session.user.specialty ?? null,
+    teaching_field: session.user.teaching_field ?? null,
+    bio: session.user.bio ?? null,
+    avatar: session.user.avatar ?? null,
     role: active?.role ?? null,
     schoolId: active?.school_id ?? null,
     contextLabel: active ? contextLabel(active) : null,

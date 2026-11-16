@@ -24,6 +24,9 @@ export function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
+  const [asStudent, setAsStudent] = useState(false);
+  const [fieldOfStudy, setFieldOfStudy] = useState('');
+  const [specialty, setSpecialty] = useState('');
   const [address, setAddress] = useState(server);
   const [showServer, setShowServer] = useState(false);
   const [errors, setErrors] = useState<FieldErrors<'name' | 'email' | 'password' | 'code'>>({});
@@ -43,7 +46,7 @@ export function LoginScreen() {
     setBusy(true);
     try {
       if (mode === 'login') await signIn(email, password, address);
-      else await register({ name, email, password, code }, address);
+      else await register({ name, email, password, code, field_of_study: asStudent ? fieldOfStudy : undefined, specialty: asStudent ? specialty : undefined }, address);
     } catch (e) {
       setFailure(friendlyMessage(e));
       setBusy(false);
@@ -88,8 +91,23 @@ export function LoginScreen() {
           <TextField label={t('Password')} value={password} onChangeText={setPassword} error={errors.password}
             secureTextEntry autoCapitalize="none" hint={mode === 'register' ? t('At least 8 characters.') : undefined} />
           {mode === 'register' ? (
-            <TextField label={t('Code')} value={code} onChangeText={setCode} error={errors.code} autoCapitalize="none"
-              hint={t("Students: your school's code. Supervisors and coordinators: the code from your invitation.")} />
+            <>
+              <TextField label={t('Code')} value={code} onChangeText={setCode} error={errors.code} autoCapitalize="none"
+                hint={t("Students: your school's code. Supervisors and coordinators: the code from your invitation.")} />
+              <Pressable accessibilityRole="button" onPress={() => setAsStudent((v) => !v)}
+                style={{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1.5, borderColor: asStudent ? colors.accent : colors.border, backgroundColor: asStudent ? colors.accentSoft : colors.cardAlt }}>
+                <Text style={{ color: asStudent ? colors.accent : colors.text, fontWeight: '700', fontSize: 15 }}>
+                  {asStudent ? `✓ ${t('Signing up as student')}` : t('Sign up as student')}
+                </Text>
+                <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>{t('Add your field of study and specialty to help your coordinator place you.')}</Text>
+              </Pressable>
+              {asStudent ? (
+                <>
+                  <TextField label={t('Field of study')} value={fieldOfStudy} onChangeText={setFieldOfStudy} autoCapitalize="words" hint={t('e.g. Computer Science, Nursing')} />
+                  <TextField label={t('Specialty / option')} value={specialty} onChangeText={setSpecialty} autoCapitalize="words" hint={t('e.g. Software Engineering, Pediatrics')} />
+                </>
+              ) : null}
+            </>
           ) : null}
           <Button title={mode === 'login' ? t('Sign in') : t('Create account')} onPress={submit} loading={busy} />
           {mode === 'login' ? (

@@ -9,7 +9,7 @@ import type { FieldErrors } from '../lib/validation';
 import { useNav } from '../nav/Navigator';
 import { useSession, useUser } from '../state/session';
 import { useAsync } from '../state/useAsync';
-import { AsyncPage, Body, Button, Card, ErrorBanner, Pill, Row, SectionTitle, TextField, Title } from '../ui/kit';
+import { AsyncPage, Avatar, Body, Button, Card, ErrorBanner, Pill, Row, SectionTitle, TextField, Title } from '../ui/kit';
 import { colors, statusColors } from '../ui/theme';
 
 interface Loaded {
@@ -30,11 +30,11 @@ export function EntryScreen({ id }: { id: string }) {
   return <AsyncPage state={state}>{(data) => <EntryBody data={data} />}</AsyncPage>;
 }
 
-/** Reviews store the reviewer's id; the placement knows the name of its supervisor. */
+/** Reviews store the reviewer's id; the placement knows the names of its supervisors. */
 export function reviewerName(placement: Placement, reviewerId: string): string {
-  return reviewerId === placement.company_supervisor_id && placement.company_supervisor_name
-    ? placement.company_supervisor_name
-    : t('Company supervisor');
+  if (reviewerId === placement.company_supervisor_id) return placement.company_supervisor_name ?? t('Company supervisor');
+  if (reviewerId === placement.academic_supervisor_id) return placement.academic_supervisor_name;
+  return t('Supervisor');
 }
 
 function EntryBody({ data }: { data: Loaded }) {
@@ -47,11 +47,14 @@ function EntryBody({ data }: { data: Loaded }) {
     && entry.status !== 'approved' && placement.status === 'open';
   const canReview = user.role === 'company_supervisor' && placement.company_supervisor_id === user.sub
     && entry.status === 'pending';
+  const canFeedback = user.role === 'academic_supervisor' && placement.academic_supervisor_id === user.sub
+    && entry.status === 'approved' && !reviews.some((r) => r.reviewer_id === user.sub);
 
   return (
     <>
       <Card>
-        <Row>
+        <Row gap={12}>
+          <Avatar name={placement.student_name} />
           <View style={{ flex: 1 }}>
             <Title>{t('Week {n}', { n: entry.week })}</Title>
             <Body muted>{placement.student_name} · {placement.company_name}</Body>
@@ -79,14 +82,18 @@ function EntryBody({ data }: { data: Loaded }) {
       ) : null}
 
       {canReview ? <ReviewPanel entryId={entry.id} /> : null}
+      {canFeedback ? <FeedbackPanel entryId={entry.id} /> : null}
 
       <SectionTitle>{t('Review history')}</SectionTitle>
       {reviews.length === 0 ? <Body muted>{t('No review yet.')}</Body> : null}
-      {reviews.map((r) => (
+      {reviews.map((r) => {
+        const isAcademic = r.reviewer_id === placement.academic_supervisor_id && r.reviewer_id !== placement.company_supervisor_id;
+        const label = isAcademic ? t('Academic feedback') : statusLabel(r.decision);
+        return (
         <Card key={r.id}>
           <Row>
             <Pill
-              label={statusLabel(r.decision)}
+              label={label}
               fg={r.decision === 'approved' ? colors.ok : colors.danger}
               bg={r.decision === 'approved' ? colors.okBg : colors.dangerBg}
             />
@@ -94,8 +101,42 @@ function EntryBody({ data }: { data: Loaded }) {
           </Row>
           {r.comment ? <Body>{r.comment}</Body> : null}
         </Card>
-      ))}
+      );})}
     </>
+  );
+}
+
+function FeedbackPanel({ entryId }: { entryId: string }) {
+  const { api } = useSession();
+  const nav = useNav();
+  const [comment, setComment] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setFailure(null);
+    if (!comment.trim()) { setError(t('Write your feedback.')); return; }
+    setError(null);
+    setBusy(true);
+    try {
+      await api.submitFeedback(entryId, comment);
+      nav.refresh();
+      nav.pop();
+    } catch (e) {
+      setFailure(e);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <SectionTitle>{t('Academic feedback')}</SectionTitle>
+      {failure ? <ErrorBanner error={failure} /> : null}
+      <TextField label={t('Feedback')} value={comment} onChangeText={setComment} error={error ?? undefined} multiline maxLength={1000}
+        hint={t('Visible to the student and supervisors after company approval.')} />
+      <Button title={t('Send feedback')} onPress={submit} loading={busy} />
+    </Card>
   );
 }
 

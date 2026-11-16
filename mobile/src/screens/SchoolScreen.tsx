@@ -9,7 +9,7 @@ import { isEmail } from '../lib/validation';
 import { useNav } from '../nav/Navigator';
 import { useSession, useUser } from '../state/session';
 import { useAsync } from '../state/useAsync';
-import { AsyncPage, Body, Button, Card, Empty, ErrorBanner, Notice, Row, SectionTitle, TextField, Title } from '../ui/kit';
+import { AsyncPage, Avatar, Body, Button, Card, Empty, ErrorBanner, Notice, Row, SectionTitle, TextField, Title } from '../ui/kit';
 
 
 /** Coordinator: the school's join code, invitations for academic supervisors, and who has joined. */
@@ -75,9 +75,16 @@ function People({ list }: { list: Member[] }) {
   return (
     <Card>
       {list.map((m) => (
-        <View key={m.user_id + m.role}>
-          <Body bold>{m.name}</Body>
-          <Body muted>{m.email}</Body>
+        <View key={m.user_id + m.role} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+          <Avatar name={m.name} uri={m.avatar} size={40} />
+          <View style={{ flex: 1 }}>
+            <Body bold>{m.name}</Body>
+            <Body muted>{m.email}</Body>
+            {m.role === 'student' && (m.field_of_study || m.specialty) ? (
+              <Body muted>{[m.field_of_study, m.specialty].filter(Boolean).join(' · ')}</Body>
+            ) : null}
+            {m.role === 'academic_supervisor' && m.teaching_field ? <Body muted>{m.teaching_field}</Body> : null}
+          </View>
         </View>
       ))}
     </Card>

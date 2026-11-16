@@ -9,6 +9,7 @@ import type { Route } from './src/nav/Navigator';
 import { AccountScreen } from './src/screens/AccountScreen';
 import { EntryFormScreen } from './src/screens/EntryFormScreen';
 import { EntryScreen } from './src/screens/EntryScreen';
+import { ProfileScreen } from './src/screens/ProfileScreen';
 import {
   AcademicSupervisorHome, CompanySupervisorHome, CoordinatorHome, StudentHome,
 } from './src/screens/HomeScreens';
@@ -38,6 +39,7 @@ function titleFor(route: Route, role: Role | null): string {
     case 'home': return role ? homeTitle(role) : t('Welcome');
     case 'school': return t('My school');
     case 'account': return t('Account');
+    case 'profile': return t('Profile');
     case 'placement': return t('Placement');
     case 'entry': return t('Entry');
     case 'entryForm': return route.entry ? t('Revise entry') : t('New entry');
@@ -71,6 +73,7 @@ function Screen({ route, role }: { route: Route; role: Role | null }) {
     case 'home': return role ? <Home role={role} /> : <NoRole />;
     case 'school': return <SchoolScreen />;
     case 'account': return <AccountScreen />;
+    case 'profile': return <ProfileScreen userId={route.userId} />;
     case 'placement': return <PlacementScreen id={route.id} />;
     case 'entry': return <EntryScreen id={route.id} />;
     case 'entryForm':
@@ -112,7 +115,7 @@ function Shell() {
               <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.78)', fontSize: 15, marginTop: 2 }}>{user.contextLabel}</Text>
             ) : null}
           </View>
-          {root ? <Avatar name={user.name} size={46} color="rgba(255,255,255,0.18)" ink="#FFFFFF" /> : null}
+          {root ? <Avatar name={user.name} uri={user.avatar} size={46} color="rgba(255,255,255,0.18)" ink="#FFFFFF" onPress={() => nav.push({ name: 'profile' })} /> : null}
         </View>
       </HeroBand>
 

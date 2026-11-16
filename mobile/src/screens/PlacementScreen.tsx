@@ -161,6 +161,7 @@ function actionLabel(action: string): string {
     case 'entry_rejected': return t('Entry rejected');
     case 'placement_closed': return t('Placement closed');
     case 'supervisors_changed': return t('Supervisors changed');
+    case 'entry_academic_feedback': return t('Academic feedback');
     default: return action;
   }
 }
