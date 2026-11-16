@@ -227,13 +227,17 @@ export class AttachLogClient {
     return this.rest<Progress>(`/v1/placements/${encodeURIComponent(placementId)}/progress`);
   }
 
+  activity(placementId: string) {
+    return this.rest<import('./types').AuditEvent[]>(`/v1/placements/${encodeURIComponent(placementId)}/activity`);
+  }
+
   // ----------------------------------------------------------------- entries
 
-  createEntry(placementId: string, entry: { week: number; tasks: string; hours: number }) {
+  createEntry(placementId: string, entry: { week: number; tasks: string; hours: number; reflection?: string | null; skills?: string | null }) {
     return this.rest<Entry>(`/v1/placements/${encodeURIComponent(placementId)}/entries`, { method: 'POST', body: entry });
   }
 
-  updateEntry(id: string, entry: { tasks: string; hours: number }) {
+  updateEntry(id: string, entry: { tasks: string; hours: number; reflection?: string | null; skills?: string | null }) {
     return this.rest<Entry>(`/v1/entries/${encodeURIComponent(id)}`, { method: 'PUT', body: entry });
   }
 

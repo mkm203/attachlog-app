@@ -4,44 +4,40 @@ import type { ReactNode } from 'react';
 
 import type { Entry, Placement, Progress } from '../api/types';
 import { t } from '../i18n';
-import { formatPercent, formatRange, statusLabel } from '../lib/format';
+import { daysSince, formatPercent, formatRange, statusLabel } from '../lib/format';
 import { useNav } from '../nav/Navigator';
 import { useSession, useUser } from '../state/session';
 import { useAsync } from '../state/useAsync';
-import { AsyncPage, Avatar, Body, Button, Card, Chip, Empty, Hero, Pill, ProgressBar, Row, SectionTitle, Stats } from '../ui/kit';
+import { AsyncPage, Avatar, Body, Button, Card, Chip, Empty, Pill, ProgressBar, Row, SectionTitle, Stats } from '../ui/kit';
 import { Icon } from '../ui/Icon';
 import { colors, statusColors } from '../ui/theme';
 import { PlacementScreen } from './PlacementScreen';
 
+const AVATAR_TONES = [
+  ['#FFE6DD', '#F2643A'], ['#E4E8FF', '#6C7BF5'], ['#DDF3E8', '#168A5B'], ['#FFF0D2', '#9A6200'],
+] as const;
+
 function PlacementCard({ placement, children }: { placement: Placement; children?: ReactNode }) {
   const nav = useNav();
   const open = placement.status === 'open';
+  const tone = AVATAR_TONES[(placement.student_name.length + placement.company_name.length) % AVATAR_TONES.length]!;
   return (
     <Card
       onPress={() => nav.push({ name: 'placement', id: placement.id })}
       label={`${placement.student_name}, ${placement.company_name}`}
     >
       <Row gap={12}>
-        <Avatar name={placement.student_name} />
+        <Avatar name={placement.student_name} size={48} color={tone[0]} ink={tone[1]} />
         <View style={{ flex: 1 }}>
           <Body bold>{placement.student_name}</Body>
-          <Body muted>{placement.company_name} · {placement.company_city}</Body>
+          <Row gap={6}><Icon name="business-outline" size={14} color={colors.muted} /><Body muted>{placement.company_name} · {placement.company_city}</Body></Row>
         </View>
-        <Icon name="chevron-forward" size={20} color={colors.muted} />
-      </Row>
-      <Row>
         <Pill label={open ? t('Open') : t('Closed')} fg={open ? colors.ok : colors.muted} bg={open ? colors.okBg : colors.track} />
-        <Body muted>{formatRange(placement.start_date, placement.end_date)}</Body>
       </Row>
+      <Row gap={6}><Icon name="calendar-outline" size={14} color={colors.muted} /><Body muted>{formatRange(placement.start_date, placement.end_date)}</Body></Row>
       {children}
     </Card>
   );
-}
-
-function Greeting({ subtitle }: { subtitle?: string }) {
-  const user = useUser();
-  const first = (user.name ?? '').trim().split(/\s+/)[0] ?? '';
-  return <Hero title={first ? t('Hello, {name}', { name: first }) : t('Welcome')} subtitle={subtitle} />;
 }
 
 // ---------------------------------------------------------------- student
@@ -84,10 +80,9 @@ export function CompanySupervisorHome() {
     <AsyncPage state={state}>
       {({ mine, queue }) => (
         <>
-          <Greeting subtitle={queue.length ? t('{n} entries are waiting for your review.', { n: queue.length }) : t('Nothing waiting for your review')} />
           <Stats items={[
-            { label: t('To review'), value: queue.length, tone: queue.length ? 'warn' : 'plain' },
-            { label: t('My interns'), value: mine.length },
+            { label: t('To review'), value: queue.length, tone: 'accent' },
+            { label: t('My interns'), value: mine.length, tone: 'mint' },
           ]} />
           <SectionTitle>{t('To review ({n})', { n: queue.length })}</SectionTitle>
           {queue.length === 0 ? <Empty icon="checkmark-done-outline" title={t('Nothing waiting for your review')} /> : null}
@@ -114,7 +109,7 @@ function QueueCard({ entry, placement }: { entry: Entry; placement: Placement })
           <Body bold>{placement.student_name} · {t('Week {n}', { n: entry.week })}</Body>
           <Body muted>{entry.hours} h · {placement.company_name}</Body>
         </View>
-        <Pill label={statusLabel('pending')} fg={c.fg} bg={c.bg} />
+        <Pill label={(daysSince(entry.updated_at ?? entry.created_at) ?? 0) >= 3 ? t('Overdue') : statusLabel('pending')} fg={(daysSince(entry.updated_at ?? entry.created_at) ?? 0) >= 3 ? colors.danger : c.fg} bg={(daysSince(entry.updated_at ?? entry.created_at) ?? 0) >= 3 ? colors.dangerBg : c.bg} />
       </Row>
       <Body muted>{entry.tasks.length > 110 ? `${entry.tasks.slice(0, 110)}…` : entry.tasks}</Body>
     </Card>
@@ -138,7 +133,6 @@ export function AcademicSupervisorHome() {
     <AsyncPage state={state}>
       {(rows) => (
         <>
-          <Greeting subtitle={user.contextLabel ?? undefined} />
           <SectionTitle>{t('Interns you supervise ({n})', { n: rows.length })}</SectionTitle>
           {rows.length === 0 ? <Empty title={t('No placements assigned to you')} /> : null}
           {rows.map(({ placement, progress }) => (
@@ -181,10 +175,9 @@ export function CoordinatorHome() {
     <AsyncPage state={state}>
       {(placements) => (
         <>
-          <Greeting subtitle={user.contextLabel ?? undefined} />
           <Stats items={[
             { label: t('Placements'), value: placements.length },
-            { label: t('Open'), value: placements.filter((p) => p.status === 'open').length, tone: 'ok' },
+            { label: t('Open'), value: placements.filter((p) => p.status === 'open').length },
             { label: t('Closed'), value: placements.filter((p) => p.status === 'closed').length },
           ]} />
           <Button title={t('New placement')} onPress={() => nav.push({ name: 'placementForm' })} />

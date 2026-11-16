@@ -141,6 +141,8 @@ class Entry(Base):
     week: Mapped[int] = mapped_column(Integer)
     tasks: Mapped[str] = mapped_column(Text)
     hours: Mapped[int] = mapped_column(Integer)
+    reflection: Mapped[str | None] = mapped_column(Text, nullable=True)
+    skills: Mapped[str | None] = mapped_column(String(400), nullable=True)  # comma-separated tags
     status: Mapped[str] = mapped_column(String(10), default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
@@ -154,4 +156,16 @@ class Review(Base):
     reviewer_id: Mapped[str] = mapped_column(String(36))
     decision: Mapped[str] = mapped_column(String(10))
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    school_id: Mapped[str | None] = mapped_column(ForeignKey("schools.id"), index=True, nullable=True)
+    placement_id: Mapped[str | None] = mapped_column(ForeignKey("placements.id"), index=True, nullable=True)
+    actor_id: Mapped[str] = mapped_column(String(36), index=True)
+    action: Mapped[str] = mapped_column(String(40))
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

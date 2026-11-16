@@ -83,17 +83,23 @@ class EntryCreate(BaseModel):
     week: int = Field(ge=1, le=60)
     tasks: str = Field(min_length=1, max_length=2000)
     hours: int = Field(ge=1, le=60)
+    reflection: str | None = Field(default=None, max_length=2000)
+    skills: str | None = Field(default=None, max_length=400, description="Comma-separated skill tags")
 
     model_config = ConfigDict(json_schema_extra={"examples": [
-        {"week": 1, "tasks": "Installed the dev environment and fixed two bugs.", "hours": 38}]})
+        {"week": 1, "tasks": "Installed the dev environment and fixed two bugs.", "hours": 38,
+         "reflection": "Learned the deployment flow.", "skills": "debugging,communication"}]})
 
 
 class EntryUpdate(BaseModel):
     tasks: str = Field(min_length=1, max_length=2000)
     hours: int = Field(ge=1, le=60)
+    reflection: str | None = Field(default=None, max_length=2000)
+    skills: str | None = Field(default=None, max_length=400)
 
     model_config = ConfigDict(json_schema_extra={"examples": [
-        {"tasks": "Added tests and reviewed the deployment notes.", "hours": 40}]})
+        {"tasks": "Added tests and reviewed the deployment notes.", "hours": 40,
+         "reflection": "Clearer on testing.", "skills": "testing,documentation"}]})
 
 
 class ReviewCreate(BaseModel):
@@ -109,8 +115,8 @@ class EntryOut(BaseModel):
         "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
         "placement_id": "5c1e6f2a-9b7d-4c3e-8a1f-2d6b9e4c7a10",
         "student_id": "stu-1", "week": 1, "tasks": "Installed the dev environment and fixed two bugs.",
-        "hours": 38, "status": "pending",
-        "created_at": "2026-09-14T10:00:00Z", "updated_at": "2026-09-14T10:00:00Z"}]})
+        "hours": 38, "reflection": "Learned the deployment flow.", "skills": "debugging,communication",
+        "status": "pending", "created_at": "2026-09-14T10:00:00Z", "updated_at": "2026-09-14T10:00:00Z"}]})
 
     id: str
     placement_id: str
@@ -118,6 +124,8 @@ class EntryOut(BaseModel):
     week: int
     tasks: str
     hours: int
+    reflection: str | None = None
+    skills: str | None = None
     status: Literal["pending", "approved", "rejected"]
     created_at: datetime
     updated_at: datetime
@@ -172,15 +180,28 @@ class Progress(BaseModel):
     approved: int
     pending: int
     rejected: int
+    total_hours: int = 0
     completion_percent: float
+    skills: list[str] = []
     comments: list[ProgressComment]
 
     model_config = ConfigDict(json_schema_extra={"examples": [{
         "placement_id": "5c1e6f2a-9b7d-4c3e-8a1f-2d6b9e4c7a10",
         "total_weeks": 12, "submitted": 3, "approved": 1, "pending": 1, "rejected": 1,
-        "completion_percent": 8.3,
+        "total_hours": 114, "completion_percent": 8.3, "skills": ["communication", "debugging"],
         "comments": [{"week": 2, "decision": "rejected",
                       "comment": "Please detail the tasks.", "reviewer_id": "cs-1"}]}]})
+
+
+class AuditOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    placement_id: str | None = None
+    actor_id: str
+    action: str
+    detail: str | None = None
+    created_at: datetime
 
 
 class ErrorBody(BaseModel):

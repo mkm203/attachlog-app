@@ -31,6 +31,8 @@ export interface EntryForm {
   week: string;
   tasks: string;
   hours: string;
+  reflection: string;
+  skills: string;
 }
 
 export function validateEntry(form: EntryForm, totalWeeks: number, requireWeek = true): FieldErrors<keyof EntryForm> {
@@ -42,6 +44,8 @@ export function validateEntry(form: EntryForm, totalWeeks: number, requireWeek =
   }
   if (!form.tasks.trim()) errors.tasks = t('Describe what you did this week.');
   else if (form.tasks.length > 2000) errors.tasks = t('Keep it under {n} characters.', { n: 2000 });
+  if ((form.reflection ?? '').length > 2000) errors.reflection = t('Keep it under {n} characters.', { n: 2000 });
+  if ((form.skills ?? '').length > 400) errors.skills = t('Keep it under {n} characters.', { n: 400 });
   const hours = parseInteger(form.hours);
   if (hours === null || hours < 1 || hours > 60) errors.hours = t('Hours must be between 1 and 60.');
   return errors;

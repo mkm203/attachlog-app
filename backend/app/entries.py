@@ -7,12 +7,13 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import audit
 from app.database import get_db
 from app.errors import ApiError
 from app.access import require_view, visible_placements
 from app.models import Entry, Placement, Review
 from app.placements import find as find_placement
-from app.schemas import (EntryCreate, EntryOut, EntryPage, EntryUpdate, ErrorResponse, Progress, ReviewCreate,
+from app.schemas import (AuditOut, EntryCreate, EntryOut, EntryPage, EntryUpdate, ErrorResponse, Progress, ReviewCreate,
                          ReviewOut)
 from app.models import User
 from app.security import current_user
@@ -44,8 +45,12 @@ def create_entry(placement_id: str, data: EntryCreate, db: DB, user: Anyone):
     taken = db.scalar(select(Entry.id).where(Entry.placement_id == placement_id, Entry.week == data.week))
     if taken:
         raise ApiError(409, "entry_exists", f"An entry already exists for week {data.week}")
-    entry = Entry(placement_id=placement_id, student_id=user.id, week=data.week, tasks=data.tasks, hours=data.hours)
+    entry = Entry(placement_id=placement_id, student_id=user.id, week=data.week, tasks=data.tasks, hours=data.hours,
+                  reflection=(data.reflection or '').strip() or None, skills=(data.skills or '').strip() or None)
     db.add(entry)
+    db.flush()
+    audit.record(db, actor_id=user.id, action="entry_submitted", placement_id=placement_id, school_id=placement.school_id,
+                 detail=f"Week {data.week}")
     try:
         db.commit()
     except IntegrityError:  # two requests at the same moment: the database constraint decides
@@ -89,8 +94,13 @@ def update_entry(entry_id: str, data: EntryUpdate, db: DB, user: Anyone):
     if entry.status == "approved":
         raise ApiError(409, "entry_locked", "An approved entry cannot be edited")
     entry.tasks, entry.hours = data.tasks, data.hours
+    entry.reflection = (data.reflection or '').strip() or None
+    entry.skills = (data.skills or '').strip() or None
     entry.status = "pending"
     entry.updated_at = datetime.now(timezone.utc)
+    placement = find_placement(db, entry.placement_id)
+    audit.record(db, actor_id=user.id, action="entry_revised", placement_id=entry.placement_id, school_id=placement.school_id,
+                 detail=f"Week {entry.week}")
     db.commit()
     return entry
 
@@ -111,6 +121,8 @@ def review_entry(entry_id: str, data: ReviewCreate, db: DB, user: Anyone):
     entry.status = data.decision
     entry.updated_at = datetime.now(timezone.utc)
     db.add(review)
+    audit.record(db, actor_id=user.id, action=f"entry_{data.decision}", placement_id=placement.id, school_id=placement.school_id,
+                 detail=f"Week {entry.week}")
     db.commit()
     return review
 
@@ -134,8 +146,27 @@ def get_progress(placement_id: str, db: DB, user: Anyone):
     reviews = db.scalars(select(Review).where(Review.entry_id.in_(by_id)).order_by(Review.created_at)).all() if by_id else []
     comments = [{"week": by_id[r.entry_id].week, "decision": r.decision, "comment": r.comment, "reviewer_id": r.reviewer_id}
                 for r in reviews if r.comment]
+    tags: list[str] = []
+    for e in entries:
+        if e.skills:
+            for t in e.skills.split(','):
+                t = t.strip().lower()
+                if t and t not in tags:
+                    tags.append(t)
     total = placement.total_weeks
     return {"placement_id": placement_id, "total_weeks": total, "submitted": len(entries),
             "approved": count("approved"), "pending": count("pending"), "rejected": count("rejected"),
+            "total_hours": sum(e.hours for e in entries),
             "completion_percent": round(count("approved") / total * 100, 1) if total else 0.0,
-            "comments": comments}
+            "skills": tags[:12], "comments": comments}
+
+
+@router.get("/placements/{placement_id}/activity", response_model=list[AuditOut],
+            responses={k: E[k] for k in (401, 403, 404)})
+def get_activity(placement_id: str, db: DB, user: Anyone):
+    """Recent activity on a placement (visible to anyone who can view it)."""
+    from app.models import AuditEvent
+    placement = find_placement(db, placement_id)
+    require_view(db, user, placement)
+    return db.scalars(select(AuditEvent).where(AuditEvent.placement_id == placement_id)
+                      .order_by(AuditEvent.created_at.desc()).limit(30)).all()

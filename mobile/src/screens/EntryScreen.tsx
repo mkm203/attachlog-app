@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import type { Decision, Entry, Placement, Review } from '../api/types';
 import { t } from '../i18n';
-import { formatDate, statusLabel } from '../lib/format';
+import { daysSince, formatDate, statusLabel } from '../lib/format';
 import { hasErrors, validateReview } from '../lib/validation';
 import type { FieldErrors } from '../lib/validation';
 import { useNav } from '../nav/Navigator';
@@ -60,6 +60,12 @@ function EntryBody({ data }: { data: Loaded }) {
         </Row>
         <Body bold>{t('{n} hours', { n: entry.hours })}</Body>
         <Body>{entry.tasks}</Body>
+        {entry.reflection ? <><Body bold>{t('Reflection')}</Body><Body>{entry.reflection}</Body></> : null}
+        {entry.skills ? <><Body bold>{t('Skills')}</Body><Body muted>{entry.skills}</Body></> : null}
+        {entry.status === 'pending' ? (() => {
+          const d = daysSince(entry.updated_at ?? entry.created_at);
+          return d !== null ? <Body muted>{d >= 3 ? t('Waiting for review ({n} days) — follow up if needed', { n: d }) : t('Waiting for review ({n} days)', { n: d })}</Body> : null;
+        })() : null}
         {entry.status === 'approved' ? <Body muted>{t('Approved entries are locked.')}</Body> : null}
       </Card>
 

@@ -19,6 +19,8 @@ export function EntryFormScreen({ placementId, totalWeeks, week, entry }: {
     week: String(entry?.week ?? week ?? ''),
     tasks: entry?.tasks ?? '',
     hours: entry ? String(entry.hours) : '',
+    reflection: entry?.reflection ?? '',
+    skills: entry?.skills ?? '',
   });
   const [errors, setErrors] = useState<FieldErrors<keyof EntryForm>>({});
   const [failure, setFailure] = useState<unknown>(null);
@@ -34,7 +36,10 @@ export function EntryFormScreen({ placementId, totalWeeks, week, entry }: {
     if (hasErrors(found)) return;
     setBusy(true);
     try {
-      const body = { tasks: form.tasks.trim(), hours: Number(form.hours) };
+      const body = {
+        tasks: form.tasks.trim(), hours: Number(form.hours),
+        reflection: form.reflection.trim() || null, skills: form.skills.trim() || null,
+      };
       if (entry) await api.updateEntry(entry.id, body);
       else await api.createEntry(placementId, { week: Number(form.week), ...body });
       nav.refresh();
@@ -74,6 +79,25 @@ export function EntryFormScreen({ placementId, totalWeeks, week, entry }: {
           error={errors.hours}
           keyboardType="number-pad"
           hint={t('Between 1 and 60.')}
+        />
+        <TextField
+          label={t('Reflection')}
+          value={form.reflection}
+          onChangeText={set('reflection')}
+          error={errors.reflection}
+          multiline
+          maxLength={2000}
+          hint={t('What did you learn or find challenging? (optional)')}
+          autoCapitalize="sentences"
+        />
+        <TextField
+          label={t('Skills')}
+          value={form.skills}
+          onChangeText={set('skills')}
+          error={errors.skills}
+          maxLength={400}
+          hint={t('Comma-separated tags, e.g. communication, debugging')}
+          autoCapitalize="none"
         />
         {entry?.status === 'rejected' ? <Body muted>{t('Saving sends this entry back to your supervisor.')}</Body> : null}
         <Button title={entry ? t('Save changes') : t('Submit week')} onPress={submit} loading={busy} />

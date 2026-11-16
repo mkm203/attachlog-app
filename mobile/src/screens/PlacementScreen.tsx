@@ -10,13 +10,13 @@ import { useSession, useUser } from '../state/session';
 import { useAsync } from '../state/useAsync';
 import { reviewerName } from './EntryScreen';
 import { AsyncPage, Avatar, Body, Marked, Button, Card, Pill, ProgressBar, Row, SectionTitle, Title } from '../ui/kit';
-import { fonts } from '../ui/fonts';
-import { colors, statusColors } from '../ui/theme';
+import { colors } from '../ui/theme';
 
 interface Loaded {
   placement: Placement;
   entries: Entry[];
   progress: Progress;
+  activity: import('../api/types').AuditEvent[];
 }
 
 /** One placement: facts, completion, the week grid, reviewer comments and the actions for the role. */
@@ -24,17 +24,17 @@ export function PlacementScreen({ id }: { id: string }) {
   const { api } = useSession();
   const nav = useNav();
   const state = useAsync<Loaded>(async () => {
-    const [placement, entries, progress] = await Promise.all([
-      api.getPlacement(id), api.allEntries({ placementId: id }), api.progress(id),
+    const [placement, entries, progress, activity] = await Promise.all([
+      api.getPlacement(id), api.allEntries({ placementId: id }), api.progress(id), api.activity(id),
     ]);
-    return { placement, entries, progress };
+    return { placement, entries, progress, activity };
   }, [api, id, nav.revision]);
 
   return <AsyncPage state={state}>{(data) => <PlacementBody data={data} />}</AsyncPage>;
 }
 
 function PlacementBody({ data }: { data: Loaded }) {
-  const { placement, entries, progress } = data;
+  const { placement, entries, progress, activity } = data;
   const user = useUser();
   const nav = useNav();
   const counts = countByStatus(entries);
@@ -75,13 +75,15 @@ function PlacementBody({ data }: { data: Loaded }) {
 
       <Card>
         <Row>
-          <Marked size={36} mono>{formatPercent(progress.completion_percent)}</Marked>
+          <Marked size={40} color={colors.accent}>{formatPercent(progress.completion_percent)}</Marked>
           <Body muted>{t('complete')}</Body>
         </Row>
         <ProgressBar percent={progress.completion_percent} />
         <Body muted>
           {t('{a} of {total} weeks approved · {p} pending · {r} rejected', { a: counts.approved, total: placement.total_weeks, p: counts.pending, r: counts.rejected })}
         </Body>
+        <Body muted>{t('{n} hours logged', { n: progress.total_hours ?? 0 })}</Body>
+        {progress.skills?.length ? <Body muted>{`${t('Skills')}: ${progress.skills.join(', ')}`}</Body> : null}
         {isStudent && open && next !== null ? (
           <Button title={t('Log week {n}', { n: next })} onPress={() => nav.push({
             name: 'entryForm', placementId: placement.id, totalWeeks: placement.total_weeks, week: next,
@@ -95,7 +97,7 @@ function PlacementBody({ data }: { data: Loaded }) {
       <Row gap={12}>
         {(['approved', 'pending', 'rejected'] as const).map((s) => (
           <Row key={s} gap={4}>
-            <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: statusColors[s].fg }} />
+            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: s === 'approved' ? colors.mint : s === 'pending' ? colors.sun : colors.danger }} />
             <Text style={{ color: colors.muted, fontSize: 13 }}>{statusLabel(s)}</Text>
           </Row>
         ))}
@@ -124,9 +126,21 @@ function PlacementBody({ data }: { data: Loaded }) {
       {!open ? (
         <Card>
           <Title>{t('Final evaluation')}</Title>
-          <Marked size={32} mono>{`${placement.final_score ?? '–'} / 20`}</Marked>
+          <Marked size={34} color={colors.accent}>{`${placement.final_score ?? '–'} / 20`}</Marked>
           {placement.final_comment ? <Body>{placement.final_comment}</Body> : null}
         </Card>
+      ) : null}
+
+      {activity.length ? (
+        <>
+          <SectionTitle>{t('Recent activity')}</SectionTitle>
+          {activity.slice(0, 8).map((a) => (
+            <Card key={a.id}>
+              <Body bold>{actionLabel(a.action)}</Body>
+              {a.detail ? <Body muted>{a.detail}</Body> : null}
+            </Card>
+          ))}
+        </>
       ) : null}
 
       {user.role === 'coordinator' && open ? (
@@ -139,10 +153,22 @@ function PlacementBody({ data }: { data: Loaded }) {
   );
 }
 
+function actionLabel(action: string): string {
+  switch (action) {
+    case 'entry_submitted': return t('Entry submitted');
+    case 'entry_revised': return t('Entry revised');
+    case 'entry_approved': return t('Entry approved');
+    case 'entry_rejected': return t('Entry rejected');
+    case 'placement_closed': return t('Placement closed');
+    case 'supervisors_changed': return t('Supervisors changed');
+    default: return action;
+  }
+}
+
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ gap: 2 }}>
-      <Text style={{ fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 0.8, textTransform: 'uppercase' }}>{label}</Text>
+      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.muted }}>{label}</Text>
       <Body>{value}</Body>
     </View>
   );
@@ -157,21 +183,17 @@ function WeekGrid({ total, byWeek, onPress }: {
       {weeks.map((week) => {
         const entry = byWeek.get(week);
         const st = entry?.status;
-        const fill = st === 'approved' ? colors.primary : st === 'pending' ? colors.highlight : st === 'rejected' ? colors.dangerBg : 'transparent';
-        const ink = st === 'approved' ? colors.onPrimary : st === 'rejected' ? colors.danger : st === 'pending' ? colors.text : colors.muted;
-        const line = st === 'approved' ? colors.primaryDark : st === 'rejected' ? colors.danger : st === 'pending' ? colors.warn : colors.border;
+        const fill = st === 'approved' ? colors.mint : st === 'pending' ? colors.sun : st === 'rejected' ? colors.danger : colors.cardAlt;
+        const ink = st === 'pending' ? '#2B1D00' : st ? '#FFFFFF' : colors.muted;
         return (
           <Pressable
             key={week}
             accessibilityRole="button"
             accessibilityLabel={`${t('Week {n}', { n: week })}, ${entry ? statusLabel(entry.status) : t('no entry')}`}
             onPress={() => onPress(week)}
-            style={{
-              width: 52, height: 52, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
-              backgroundColor: fill, borderWidth: 1.5, borderColor: line, borderStyle: entry ? 'solid' : 'dashed',
-            }}
+            style={{ width: 54, height: 62, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: fill }}
           >
-            <Text style={{ fontSize: 17, fontWeight: '800', color: ink, fontFamily: fonts.mono }}>{week}</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: ink }}>{week}</Text>
           </Pressable>
         );
       })}

@@ -17,12 +17,12 @@ import { PlacementScreen } from './src/screens/PlacementScreen';
 import { SchoolScreen } from './src/screens/SchoolScreen';
 import { CloseFormScreen, PlacementFormScreen, SupervisorsFormScreen } from './src/screens/PlacementForms';
 import { LanguageProvider } from './src/state/language';
+import { ThemeProvider, useTheme } from './src/state/theme';
 import { SessionProvider, useSession, useUser } from './src/state/session';
-import { fonts } from './src/ui/fonts';
-import { Body, Empty, Page, Paper } from './src/ui/kit';
+import { Avatar, Body, Empty, HeroBand, Page } from './src/ui/kit';
 import { Icon } from './src/ui/Icon';
 import type { IconName } from './src/ui/Icon';
-import { colors } from './src/ui/theme';
+import { colors, lift } from './src/ui/theme';
 
 function homeTitle(role: Role): string {
   switch (role) {
@@ -89,49 +89,50 @@ function Shell() {
   const iconFor = (tab: 'home' | 'school' | 'account', active: boolean): IconName =>
     tab === 'home' ? (active ? 'home' : 'home-outline')
       : tab === 'school' ? (active ? 'school' : 'school-outline') : (active ? 'person-circle' : 'person-circle-outline');
+  const tabName = (tab: 'home' | 'school' | 'account') => (tab === 'home' ? t('Home') : tab === 'school' ? t('School') : t('Account'));
+  const first = user.name.trim().split(/\s+/)[0] ?? '';
+  const root = !nav.canGoBack;
+  const heading = root && nav.tab === 'home' && nav.route.name === 'home' && first ? t('Hello, {name}', { name: first }) : titleFor(nav.route, user.role);
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <Paper />
-      <View style={{ backgroundColor: colors.card, paddingTop: insets.top }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingHorizontal: 8, gap: 4 }}>
+    <View style={{ flex: 1, backgroundColor: colors.hero }}>
+      <HeroBand top={insets.top} bottom={root ? 40 : 30}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 }}>
           {nav.canGoBack ? (
             <Pressable accessibilityRole="button" accessibilityLabel={t('Back')} onPress={nav.pop}
-              style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="chevron-back" size={26} color={colors.primaryDark} />
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="chevron-back" size={24} color="#FFFFFF" />
             </Pressable>
-          ) : <View style={{ width: 10 }} />}
-          <Text accessibilityRole="header" numberOfLines={1}
-            style={{ flex: 1, fontSize: 21, fontWeight: '700', color: colors.primaryDark, fontFamily: fonts.display }}>
-            {titleFor(nav.route, user.role)}
-          </Text>
+          ) : null}
+          <View style={{ flex: 1 }}>
+            <Text accessibilityRole="header" numberOfLines={1} style={{ fontSize: root ? 28 : 21, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 }}>
+              {heading}
+            </Text>
+            {root && user.contextLabel ? (
+              <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.78)', fontSize: 15, marginTop: 2 }}>{user.contextLabel}</Text>
+            ) : null}
+          </View>
+          {root ? <Avatar name={user.name} size={46} color="rgba(255,255,255,0.18)" ink="#FFFFFF" /> : null}
         </View>
-        {/* a double rule, as in a ledger */}
-        <View style={{ height: 1.5, backgroundColor: colors.primaryDark }} />
-        <View style={{ height: 3 }} />
-        <View style={{ height: 1, backgroundColor: colors.primaryDark }} />
-      </View>
+      </HeroBand>
 
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: colors.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30, marginTop: -24, overflow: 'hidden' }}>
         <Screen key={`${nav.route.name}:${user.activeId}`} route={nav.route} role={user.role} />
       </View>
 
-      {!nav.canGoBack ? (
-        <View style={{
-          flexDirection: 'row', backgroundColor: colors.card, paddingBottom: Math.max(insets.bottom, 6), paddingTop: 6,
-          borderTopWidth: 1.5, borderTopColor: colors.primaryDark,
-        }}>
+      {root ? (
+        <View style={[{
+          flexDirection: 'row', backgroundColor: colors.sheet, paddingBottom: Math.max(insets.bottom, 8), paddingTop: 8,
+          borderTopLeftRadius: 26, borderTopRightRadius: 26, marginTop: -26,
+        }, lift(1.2)]}>
           {tabs.map((tab) => {
             const active = nav.tab === tab;
             return (
-              <Pressable key={tab} accessibilityRole="tab" accessibilityState={{ selected: active }}
+              <Pressable key={tab} accessibilityRole="tab" accessibilityLabel={tabName(tab)} accessibilityState={{ selected: active }}
                 onPress={() => nav.setTab(tab)}
-                style={{ flex: 1, minHeight: 54, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                <View style={{ paddingHorizontal: 18, paddingVertical: 4, borderRadius: 6, backgroundColor: active ? colors.highlight : 'transparent' }}>
-                  <Icon name={iconFor(tab, active)} size={22} color={active ? colors.primaryDark : colors.muted} />
-                </View>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: active ? colors.primaryDark : colors.muted }}>
-                  {tab === 'home' ? t('Home') : tab === 'school' ? t('School') : t('Account')}
-                </Text>
+                style={{ flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                <Icon name={iconFor(tab, active)} size={26} color={active ? colors.accent : colors.muted} />
+                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: active ? colors.accent : 'transparent' }} />
               </Pressable>
             );
           })}
@@ -141,17 +142,22 @@ function Shell() {
   );
 }
 
+function ThemedStatusBar() {
+  const { scheme } = useTheme();
+  return <StatusBar style={scheme === 'dark' ? 'light' : 'light'} />;
+}
+
 function Root() {
   const { ready, session } = useSession();
   if (!ready) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.sheet }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
   if (!session) {
-    return <View style={{ flex: 1, backgroundColor: colors.bg }}><Paper /><LoginScreen /></View>;
+    return <View style={{ flex: 1, backgroundColor: colors.sheet }}><LoginScreen /></View>;
   }
   return <NavProvider><Shell /></NavProvider>;
 }
@@ -159,12 +165,14 @@ function Root() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <LanguageProvider>
-        <SessionProvider>
-          <StatusBar style="dark" />
-          <Root />
-        </SessionProvider>
-      </LanguageProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <SessionProvider>
+            <ThemedStatusBar />
+            <Root />
+          </SessionProvider>
+        </LanguageProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

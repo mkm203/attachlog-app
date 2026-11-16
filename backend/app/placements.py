@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import audit
 from app.access import require_coordinator, require_view, visible_placements
 from app.database import get_db
 from app.errors import ApiError
@@ -118,6 +119,7 @@ def update_placement(placement_id: str, data: PlacementUpdate, db: DB, user: Any
                                 "supervisor_not_in_school", "academic supervisor")
     placement.academic_supervisor_id, placement.academic_supervisor_name = academic.id, academic.name
     set_company_supervisor(db, placement, data.company_supervisor_email, user.id)
+    audit.record(db, actor_id=user.id, action="supervisors_changed", placement_id=placement.id, school_id=placement.school_id)
     db.commit()
     return placement
 
@@ -133,5 +135,7 @@ def close_placement(placement_id: str, data: FinalEvaluation, db: DB, user: Anyo
     placement.status = "closed"
     placement.final_score = data.score
     placement.final_comment = data.comment
+    audit.record(db, actor_id=user.id, action="placement_closed", placement_id=placement.id, school_id=placement.school_id,
+                 detail=f"score={data.score}")
     db.commit()
     return placement

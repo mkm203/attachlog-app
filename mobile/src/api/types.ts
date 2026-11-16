@@ -55,6 +55,8 @@ export interface Entry {
   week: number;
   tasks: string;
   hours: number;
+  reflection: string | null;
+  skills: string | null;
   status: EntryStatus;
   created_at?: string;
   updated_at?: string;
@@ -83,8 +85,19 @@ export interface Progress {
   approved: number;
   pending: number;
   rejected: number;
+  total_hours: number;
   completion_percent: number;
+  skills: string[];
   comments: ProgressComment[];
+}
+
+export interface AuditEvent {
+  id: string;
+  placement_id: string | null;
+  actor_id: string;
+  action: string;
+  detail: string | null;
+  created_at: string;
 }
 
 export interface Membership {

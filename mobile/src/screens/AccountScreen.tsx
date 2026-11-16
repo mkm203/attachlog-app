@@ -8,12 +8,15 @@ import { hasErrors, validateNewPassword } from '../lib/validation';
 import type { FieldErrors } from '../lib/validation';
 import { contextLabel } from '../state/account';
 import { useSession, useUser } from '../state/session';
+import { useTheme } from '../state/theme';
+import type { ThemePreference } from '../state/theme';
 import { LanguageChips } from '../ui/LanguageChips';
 import { Body, Button, Card, Chip, ErrorBanner, Notice, Page, SectionTitle, TextField, Title } from '../ui/kit';
 import { ConnectionCheck } from './ConnectionCheck';
 
 export function AccountScreen() {
   const user = useUser();
+  const theme = useTheme();
   const { api, server, setServer, signOut, switchContext, updateMe } = useSession();
   const [address, setAddress] = useState(server);
   const [saved, setSaved] = useState(false);
@@ -102,6 +105,16 @@ export function AccountScreen() {
         <TextField label={t('New password')} value={next} onChangeText={setNext} error={pwErrors.password} secureTextEntry autoCapitalize="none" />
         <TextField label={t('Repeat new password')} value={repeat} onChangeText={setRepeat} error={pwErrors.repeat} secureTextEntry autoCapitalize="none" />
         <Button title={t('Change password')} variant="ghost" onPress={changePassword} loading={changing} disabled={!current || !next} />
+      </Card>
+
+      <SectionTitle>{t('Appearance')}</SectionTitle>
+      <Card>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {(['system', 'light', 'dark'] as ThemePreference[]).map((p) => (
+            <Chip key={p} selected={theme.preference === p} onPress={() => theme.choose(p)}
+              label={p === 'system' ? t('System') : p === 'light' ? t('Light') : t('Dark')} />
+          ))}
+        </View>
       </Card>
 
       <SectionTitle>{t('Language')}</SectionTitle>

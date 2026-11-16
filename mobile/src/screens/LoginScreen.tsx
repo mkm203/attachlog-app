@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,8 +9,7 @@ import { t } from '../i18n';
 import { hasErrors, validateLogin, validateNewPassword, validateRegister } from '../lib/validation';
 import type { FieldErrors } from '../lib/validation';
 import { useSession } from '../state/session';
-import { Button, Card, ErrorBanner, Marked, Notice, Page, TextField, Title } from '../ui/kit';
-import { fonts } from '../ui/fonts';
+import { Button, Card, ErrorBanner, HeroBand, Notice, Page, TextField, Title } from '../ui/kit';
 import { colors } from '../ui/theme';
 import { LanguageChips } from '../ui/LanguageChips';
 import { ConnectionCheck } from './ConnectionCheck';
@@ -31,6 +30,9 @@ export function LoginScreen() {
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Wake a sleeping free server while the person types, so the first sign-in is not slow.
+  useEffect(() => { void new AttachLogClient({ server }).health(); }, [server]);
+
   const go = (next: Mode) => { setMode(next); setErrors({}); setFailure(null); };
 
   const submit = async () => {
@@ -50,7 +52,7 @@ export function LoginScreen() {
 
   if (mode === 'forgot') {
     return (
-      <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.bg }}>
+      <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.sheet }}>
         <ForgotPassword server={SERVER_LOCKED ? server : normalizeServer(address) || server} onDone={() => go('login')} />
       </View>
     );
@@ -58,20 +60,24 @@ export function LoginScreen() {
 
   return (
     <Page flush>
-      <View style={{ paddingTop: insets.top + 36, paddingBottom: 28, paddingHorizontal: 24, gap: 10 }}>
-        <Image source={require('../../assets/splash-icon.png')} style={{ width: 76, height: 76 }} accessibilityLabel="AttachLog logo" />
-        <Marked size={38}>AttachLog</Marked>
-        <Text style={{ color: colors.muted, fontSize: 16, fontFamily: fonts.display, fontStyle: 'italic', maxWidth: 300 }}>
-          {t('Internship logbook for students, schools and companies')}
-        </Text>
-      </View>
+      <HeroBand top={insets.top + 12} bottom={56}>
+        <View style={{ gap: 12, alignItems: 'flex-start' }}>
+          <View style={{ width: 72, height: 72, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
+            <Image source={require('../../assets/splash-icon.png')} style={{ width: 56, height: 56 }} accessibilityLabel="AttachLog logo" />
+          </View>
+          <Text style={{ color: '#FFFFFF', fontSize: 34, fontWeight: '800', letterSpacing: -0.8 }}>AttachLog</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.82)', fontSize: 16, maxWidth: 300 }}>
+            {t('Internship logbook for students, schools and companies')}
+          </Text>
+        </View>
+      </HeroBand>
 
-      <View style={{ paddingHorizontal: 16, gap: 16, paddingBottom: 32 }}>
+      <View style={{ marginTop: -28, backgroundColor: colors.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 20, paddingTop: 24, gap: 16, paddingBottom: 32 }}>
         {notice ? <Notice>{notice}</Notice> : null}
         {failure ? <ErrorBanner message={failure} /> : null}
 
-        <Card>
-          <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text, fontFamily: fonts.display }}>
+        <View style={{ gap: 16 }}>
+          <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, letterSpacing: -0.5 }}>
             {mode === 'login' ? t('Sign in') : t('Create account')}
           </Text>
           {mode === 'register' ? (
@@ -91,15 +97,19 @@ export function LoginScreen() {
               <Text style={{ color: colors.muted, fontSize: 15, textAlign: 'center' }}>{t('Forgot your password?')}</Text>
             </Pressable>
           ) : null}
-        </Card>
+        </View>
 
         <Pressable accessibilityRole="button" onPress={() => go(mode === 'login' ? 'register' : 'login')} style={{ paddingVertical: 8 }}>
-          <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '700', textAlign: 'center' }}>
+          <Text style={{ color: colors.accent, fontSize: 15, fontWeight: '800', textAlign: 'center' }}>
             {mode === 'login' ? t('New here? Create an account with a code') : t('I already have an account')}
           </Text>
         </Pressable>
 
         <View style={{ alignItems: 'center' }}><LanguageChips /></View>
+
+        <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'center' }}>
+          {server.replace(/^https?:\/\//, '')}
+        </Text>
 
         {SHOW_SERVER_SETTINGS ? (
           <>

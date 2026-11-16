@@ -33,6 +33,13 @@ export function formatPercent(value: number): string {
   return Number.isInteger(value) ? `${value}%` : `${value.toFixed(1)}%`;
 }
 
+export function daysSince(iso?: string): number | null {
+  if (!iso) return null;
+  const ms = Date.now() - Date.parse(iso);
+  if (Number.isNaN(ms)) return null;
+  return Math.max(0, Math.floor(ms / 86400000));
+}
+
 export function initials(name: string): string {
   const letters = name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase());
   return letters.join('') || '?';
