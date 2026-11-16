@@ -1,4 +1,4 @@
-from tests.conftest import COORDINATOR, PASSWORD, STUDENT, SUPERVISOR
+from tests.conftest import ACADEMIC, COORDINATOR, COORDINATOR_S2, PASSWORD, STUDENT, SUPERVISOR, ADMIN
 from app.models import User
 
 PLACEMENT = {"student_id": "stu-1", "academic_supervisor_id": "as-1", "company_name": "Douala Tech SARL",
@@ -138,6 +138,61 @@ def test_close_records_evaluation_and_locks(client):
     upd = client.put(f"/v1/placements/{pid}", headers=COORDINATOR,
                      json={"academic_supervisor_id": "as-1", "company_supervisor_email": "cs-1@example.com"})
     assert upd.status_code == 409
+
+
+def test_closed_placement_report_includes_entries_reviews_and_closure_date(client):
+    placement = make(client).json()
+    entry = client.post(f"/v1/placements/{placement['id']}/entries", headers=STUDENT, json={
+        "week": 1, "tasks": "Prepared a deployment", "hours": 35,
+        "reflection": "Learned release testing.", "skills": "testing, deployment",
+    })
+    assert entry.status_code == 201
+    reviewed = client.post(f"/v1/entries/{entry.json()['id']}/reviews", headers=SUPERVISOR,
+                           json={"decision": "approved", "comment": "Good work."})
+    assert reviewed.status_code == 201
+    feedback = client.post(f"/v1/entries/{entry.json()['id']}/feedback", headers=ACADEMIC,
+                           json={"decision": "approved", "comment": "Strong reflection."})
+    assert feedback.status_code == 201
+    closed = client.post(f"/v1/placements/{placement['id']}/close", headers=COORDINATOR,
+                         json={"score": 16, "comment": "Reliable."})
+    assert closed.status_code == 200
+
+    report = client.get(f"/v1/placements/{placement['id']}/report", headers=COORDINATOR)
+    assert report.status_code == 200
+    body = report.json()
+    assert body["school_name"] == "Univ One"
+    assert body["placement"]["start_date"] == "2026-09-07"
+    assert body["placement"]["end_date"] == "2026-11-29"
+    assert body["placement"]["final_score"] == 16
+    assert body["placement"]["final_comment"] == "Reliable."
+    assert body["closed_at"]
+    assert len(body["entries"]) == 1
+    report_entry = body["entries"][0]
+    assert report_entry["tasks"] == "Prepared a deployment"
+    assert report_entry["reflection"] == "Learned release testing."
+    assert report_entry["skills"] == "testing, deployment"
+    assert report_entry["created_at"] and report_entry["updated_at"]
+    assert [(r["reviewer_name"], r["comment"]) for r in report_entry["reviews"]] == [
+        ("Paul Mbarga", "Good work."),
+        ("Elise Ngono", "Strong reflection."),
+    ]
+    assert all(r["created_at"] for r in report_entry["reviews"])
+
+
+def test_placement_report_is_coordinator_only_and_closed_only(client):
+    closed_id = make(client).json()["id"]
+    closed = client.post(f"/v1/placements/{closed_id}/close", headers=COORDINATOR,
+                         json={"score": 12, "comment": "Completed."})
+    assert closed.status_code == 200
+    for headers in (STUDENT, SUPERVISOR, ACADEMIC, COORDINATOR_S2, ADMIN):
+        response = client.get(f"/v1/placements/{closed_id}/report", headers=headers)
+        assert response.status_code == 403
+        assert response.json()["error"]["code"] == "forbidden"
+
+    open_id = make(client).json()["id"]
+    response = client.get(f"/v1/placements/{open_id}/report", headers=COORDINATOR)
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "placement_not_closed"
 
 
 def test_score_out_of_range_is_422(client):

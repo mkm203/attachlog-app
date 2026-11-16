@@ -1,7 +1,7 @@
 import { DEFAULT_SERVER, normalizeServer } from './config';
 import { ApiError } from './errors';
 import type {
-  Decision, Entry, Grant, LoginResult, Me, Member, Page, Placement, PlacementInput, Progress, Review, Role,
+  Decision, Entry, Grant, LoginResult, Me, Member, Page, Placement, PlacementInput, PlacementReport, Progress, Review, Role,
   SchoolDetail, Session,
 } from './types';
 
@@ -229,6 +229,10 @@ export class AttachLogClient {
 
   getPlacement(id: string) {
     return this.rest<Placement>(`/v1/placements/${encodeURIComponent(id)}`);
+  }
+
+  getPlacementReport(id: string) {
+    return this.rest<PlacementReport>(`/v1/placements/${encodeURIComponent(id)}/report`);
   }
 
   createPlacement(input: PlacementInput) {

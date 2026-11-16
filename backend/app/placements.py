@@ -10,9 +10,10 @@ from app import audit
 from app.access import require_coordinator, require_view, visible_placements
 from app.database import get_db
 from app.errors import ApiError
-from app.models import Company, Membership, Placement, School, User
+from app.models import AuditEvent, Company, Entry, Membership, Placement, Review, School, User
 from app.people import find_or_create_company, grant_or_invite, user_by_email
 from app.schemas import (ErrorResponse, FinalEvaluation, PlacementCreate, PlacementOut, PlacementPage,
+                         EntryOut, PlacementReportEntry, PlacementReportOut, PlacementReportReview,
                          PlacementUpdate)
 from app.security import current_user
 
@@ -129,6 +130,56 @@ def get_placement(placement_id: str, db: DB, user: Anyone):
     placement = find(db, placement_id)
     require_view(db, user, placement)
     return placement_output(db, placement)
+
+
+@router.get("/{placement_id}/report", response_model=PlacementReportOut,
+            responses={k: ERR[k] for k in (401, 403, 404, 409)})
+def placement_report(placement_id: str, db: DB, user: Anyone):
+    """Return a closed placement's complete report data to a coordinator of its school."""
+    placement = find(db, placement_id)
+    require_coordinator(db, user, placement.school_id)
+    if placement.status != "closed":
+        raise ApiError(409, "placement_not_closed", "Only a closed placement can be exported")
+
+    entries = db.scalars(
+        select(Entry).where(Entry.placement_id == placement_id).order_by(Entry.week, Entry.created_at)
+    ).all()
+    entry_ids = [entry.id for entry in entries]
+    reviews = db.scalars(
+        select(Review).where(Review.entry_id.in_(entry_ids)).order_by(Review.created_at)
+    ).all() if entry_ids else []
+    reviewer_ids = {review.reviewer_id for review in reviews}
+    reviewers = {
+        person.id: person.name
+        for person in db.scalars(select(User).where(User.id.in_(reviewer_ids))).all()
+    } if reviewer_ids else {}
+    reviews_by_entry: dict[str, list[PlacementReportReview]] = {}
+    for review in reviews:
+        report_review = PlacementReportReview.model_validate(review).model_copy(update={
+            "reviewer_name": reviewers.get(review.reviewer_id),
+        })
+        reviews_by_entry.setdefault(review.entry_id, []).append(report_review)
+
+    report_entries = []
+    for entry in entries:
+        entry_data = EntryOut.model_validate(entry).model_dump()
+        report_entries.append(PlacementReportEntry.model_validate({
+            **entry_data,
+            "reviews": reviews_by_entry.get(entry.id, []),
+        }))
+    closed_event = db.scalar(
+        select(AuditEvent).where(
+            AuditEvent.placement_id == placement_id,
+            AuditEvent.action == "placement_closed",
+        ).order_by(AuditEvent.created_at.desc()).limit(1)
+    )
+    school = db.get(School, placement.school_id)
+    return PlacementReportOut(
+        placement=placement_output(db, placement),
+        school_name=school.name,
+        closed_at=closed_event.created_at if closed_event else None,
+        entries=report_entries,
+    )
 
 
 @router.put("/{placement_id}", response_model=PlacementOut,

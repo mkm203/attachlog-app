@@ -40,6 +40,7 @@ const MESSAGES: Record<string, string> = {
   comment_required: 'A rejection needs a comment.',
   week_out_of_range: 'That week is outside the placement.',
   placement_closed: 'This placement is closed.',
+  placement_not_closed: 'Only closed placements can be exported.',
   placement_not_found: 'Placement not found.',
   entry_not_found: 'Entry not found.',
   invalid_dates: 'The end date must be after the start date.',

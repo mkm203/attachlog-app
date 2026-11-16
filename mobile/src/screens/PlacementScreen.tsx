@@ -1,15 +1,19 @@
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import type { Entry, Placement, Progress } from '../api/types';
 import {
   countByStatus, entriesByWeek, formatPercent, formatRange, nextFreeWeek, statusLabel,
 } from '../lib/format';
+import { placementReportHtml } from '../lib/placementReport';
 import { t } from '../i18n';
 import { useNav } from '../nav/Navigator';
 import { useSession, useUser } from '../state/session';
 import { useAsync } from '../state/useAsync';
 import { reviewerName } from './EntryScreen';
-import { AsyncPage, Avatar, Body, Marked, Button, Card, Pill, ProgressBar, Row, SectionTitle, Title } from '../ui/kit';
+import { AsyncPage, Avatar, Body, Marked, Button, Card, ErrorBanner, Pill, ProgressBar, Row, SectionTitle, Title } from '../ui/kit';
 import { colors } from '../ui/theme';
 
 interface Loaded {
@@ -35,8 +39,11 @@ export function PlacementScreen({ id }: { id: string }) {
 
 function PlacementBody({ data }: { data: Loaded }) {
   const { placement, entries, progress, activity } = data;
+  const { api } = useSession();
   const user = useUser();
   const nav = useNav();
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<unknown>(null);
   const counts = countByStatus(entries);
   const byWeek = entriesByWeek(entries);
   const open = placement.status === 'open';
@@ -51,8 +58,30 @@ function PlacementBody({ data }: { data: Loaded }) {
     }
   };
 
+  const exportReport = async () => {
+    setExportError(null);
+    setExporting(true);
+    try {
+      const report = await api.getPlacementReport(placement.id);
+      const pdf = await Print.printToFileAsync({ html: placementReportHtml(report) });
+      if (!await Sharing.isAvailableAsync()) {
+        throw new Error(t('PDF sharing is not available on this device.'));
+      }
+      await Sharing.shareAsync(pdf.uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: t('Download placement PDF'),
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (error) {
+      setExportError(error);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <>
+      {exportError ? <ErrorBanner error={exportError} /> : null}
       <Card>
         <Row gap={12}>
           <Avatar name={placement.student_name} uri={placement.student_avatar} size={52} />
@@ -150,6 +179,9 @@ function PlacementBody({ data }: { data: Loaded }) {
           <Button title={t('Change supervisors')} variant="ghost" onPress={() => nav.push({ name: 'supervisorsForm', placement })} />
           <Button title={t('Close placement and evaluate')} variant="danger" onPress={() => nav.push({ name: 'closeForm', placement })} />
         </View>
+      ) : null}
+      {user.role === 'coordinator' && !open ? (
+        <Button title={t('Export placement PDF')} onPress={exportReport} loading={exporting} />
       ) : null}
     </>
   );

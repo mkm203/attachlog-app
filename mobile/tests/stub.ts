@@ -19,6 +19,12 @@ const ME = {
 };
 const ENTRY = { id: 'e-1', placement_id: 'p-1', student_id: 'stu-1', week: 1, tasks: 'Fixed bugs', hours: 38,
   status: 'pending', created_at: '2026-09-14T10:00:00Z', updated_at: '2026-09-14T10:00:00Z' };
+const PLACEMENT_REPORT = {
+  placement: { ...PLACEMENT, status: 'closed', final_score: 16, final_comment: 'Reliable.' },
+  school_name: 'Univ One',
+  closed_at: '2026-11-29T10:00:00Z',
+  entries: [{ ...ENTRY, status: 'approved', reviews: [] }],
+};
 
 export interface StubOptions {
   /** Largest page size the stub honours, to force the client to walk several pages. */
@@ -96,6 +102,7 @@ export async function startStub(options: StubOptions = {}): Promise<Stub> {
           invite: { code: 'ABCDE12345', email: body.email, role: 'academic_supervisor', expires_at: '2026-12-01T00:00:00Z', accepted_at: null } });
       }
       if (url.pathname === '/v1/placements/p-1') return send(200, PLACEMENT);
+      if (url.pathname === '/v1/placements/p-1/report') return send(200, PLACEMENT_REPORT);
       if (url.pathname === '/v1/entries' && req.method === 'GET') {
         return send(200, pageOf([ENTRY, { ...ENTRY, id: 'e-2', week: 2 }, { ...ENTRY, id: 'e-3', week: 3 }]));
       }

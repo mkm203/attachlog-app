@@ -105,6 +105,15 @@ describe('REST', () => {
     }
   });
 
+  test('closed placement report uses the authenticated report endpoint', async () => {
+    const client = clientFor(stub.url, { token: 'tok-stu-1' });
+    const report = await client.getPlacementReport('p-1');
+    assert.equal(report.placement.final_score, 16);
+    const sent = stub.requests.at(-1)!;
+    assert.equal(sent.auth, 'Bearer tok-stu-1');
+    assert.equal(sent.path, '/v1/placements/p-1/report');
+  });
+
   test('a 401 with a token signs the user out once', async () => {
     let signedOut = 0;
     const client = clientFor(stub.url, { token: 'expired', onUnauthorized: () => signedOut++ });

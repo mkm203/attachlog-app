@@ -39,6 +39,21 @@ export interface Placement {
   final_comment: string | null;
 }
 
+export interface PlacementReportReview extends Review {
+  reviewer_name: string | null;
+}
+
+export interface PlacementReportEntry extends Entry {
+  reviews: PlacementReportReview[];
+}
+
+export interface PlacementReport {
+  placement: Placement;
+  school_name: string;
+  closed_at: string | null;
+  entries: PlacementReportEntry[];
+}
+
 /** The coordinator picks the student and academic supervisor from the school's members. */
 export interface PlacementInput {
   school_id?: string;

@@ -165,6 +165,21 @@ class ReviewOut(BaseModel):
     created_at: datetime
 
 
+class PlacementReportReview(ReviewOut):
+    reviewer_name: str | None = None
+
+
+class PlacementReportEntry(EntryOut):
+    reviews: list[PlacementReportReview]
+
+
+class PlacementReportOut(BaseModel):
+    placement: PlacementOut
+    school_name: str
+    closed_at: datetime | None
+    entries: list[PlacementReportEntry]
+
+
 class ProgressComment(BaseModel):
     week: int
     decision: str
