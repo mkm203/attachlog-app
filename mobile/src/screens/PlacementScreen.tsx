@@ -1,7 +1,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 
 import type { Entry, Placement, Progress } from '../api/types';
 import {
@@ -63,7 +63,12 @@ function PlacementBody({ data }: { data: Loaded }) {
     setExporting(true);
     try {
       const report = await api.getPlacementReport(placement.id);
-      const pdf = await Print.printToFileAsync({ html: placementReportHtml(report) });
+      const html = placementReportHtml(report);
+      if (Platform.OS === 'android') {
+        await Print.printAsync({ html });
+        return;
+      }
+      const pdf = await Print.printToFileAsync({ html });
       if (!await Sharing.isAvailableAsync()) {
         throw new Error(t('PDF sharing is not available on this device.'));
       }
